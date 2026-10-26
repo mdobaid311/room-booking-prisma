@@ -270,3 +270,71 @@ alchemy: node 22.22.0 is not supported. Upgrade to node 24.11.1 or newer.
   `valibot` via `alchemy`. `npm audit fix --force` would "fix" them by
   installing `@prisma/composer@0.6.0` or `prisma@7.10.1`, i.e. downgrading
   the platform. Left as is; dev and deploy tooling, not app runtime code.
+
+---
+
+## Step 3: Booking API (~25 min)
+
+### How the server guards against double booking
+
+The tutorial used `prisma.$transaction(fn, { isolationLevel: Serializable })`
+and turned `P2034` into a 409. Neither exists in Prisma ORM 8, so:
+
+1. `db.transaction(async (tx) => ...)` (READ COMMITTED, the only level).
+2. Lock the room row(s): `tx.orm.public.Room.where({ id }).forNoKeyUpdate().first()`,
+   in id order. A move locks the booking first, then both rooms, so all
+   writers take locks in the same order and queue instead of deadlocking.
+   `FOR NO KEY UPDATE` rather than `FOR UPDATE` so other transactions'
+   foreign-key checks on `Room` are not blocked.
+3. Read the overlapping bookings with `.where((b) => b.startsAt.lt(end))` /
+   `.gt(start)`, build a `Resource` and call `isPlacementAllowed` from
+   `resource-scheduler/headless` with the same `bookingRules()` the browser
+   spreads onto the component.
+4. Write. Postgres refusals (`sqlState` `23P01` exclusion, `40001`, `40P01`)
+   also become a conflict; the exclusion constraint is the backstop.
+
+This is arguably simpler than Serializable: no retries, no serialization
+failures, and the losers get a precise message instead of "try again".
+
+- Live check through HTTP: 20 parallel `POST /api/bookings` for the same slot
+  gave **1 × 201 and 19 × 409**, one row in the table, nothing in the log.
+- Errors: 400 `invalid` with per-field messages from zod, 404 `not_found`,
+  409 `conflict` that names the booking in the way on the office clock
+  (`Atlas is already booked from 9:00 AM to 9:30 AM ("Daily standup").`),
+  422 `rule` for opening hours and "already started".
+
+### Package gaps found (resource-scheduler)
+
+- `isPlacementAllowed` returns only `boolean`. A server wants to say *why*
+  (overlap with which booking, or which `isValidDrop` rule), so the template
+  runs its own `checkBookingRules()` first to explain rule breaks and looks
+  up the overlapping booking itself for the message. A variant that returns
+  the reason (`{ ok: false, reason: "overlap", with: event }` or the
+  rule's own code) would remove that duplication. Not worked around in the
+  package; logged here.
+- Rules shared across the boundary must be time-zone independent. The
+  conflict-control guide's `isValidDrop` example (`start.getHours() >= 9`)
+  gives different answers in a browser in Berlin and a server in UTC. The
+  template uses `utcToZoned(start, OFFICE_TIME_ZONE)` on both sides, plus the
+  component's `timeZone` prop. The docs could warn about this next to the
+  "use it on the server too" advice.
+
+### Prisma ORM 8 API notes
+
+- Reads well once learned: `where({ id })`, `.where((b) => b.startsAt.lt(x))`,
+  `.orderBy((b) => b.startsAt.asc())`, `.first()`, `.all()`, `create({...})`
+  without `data:`, `where({ id }).update({...})` returns `Row | null`,
+  `where({ id }).delete()` returns the row or `null`.
+- Errors carry `sqlState` on the error or its `cause` (no exported class to
+  `instanceof`). The docs show the loop to dig it out; copied that.
+- `upsert` needs `conflictOn: { name: "<any value>" }` where only the key
+  matters. Odd, but documented.
+
+### Next.js 16 surprise
+
+- The first `next dev` wrote an `AGENTS.md` ("This is NOT the Next.js you
+  know ... Read the relevant guide in `node_modules/next/dist/docs/`") and
+  logs `Generated AGENTS.md for AI agents. Set agentRules: false in
+  next.config to disable.` It asks to be committed, so it is. Checked the
+  bundled docs: `export const dynamic = "force-dynamic"` is still valid
+  without Cache Components.
