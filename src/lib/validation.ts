@@ -30,6 +30,8 @@ const slotFields = z.object({
 });
 
 const slotIsValid = (slot: { startsAt: Date; endsAt: Date }, ctx: z.RefinementCtx) => {
+  // zod still runs this when a date failed to parse; that field already has its message.
+  if (!(slot.startsAt instanceof Date) || !(slot.endsAt instanceof Date)) return;
   if (slot.endsAt <= slot.startsAt) {
     ctx.addIssue({ code: "custom", path: ["endsAt"], message: "The booking must end after it starts." });
   } else if (slot.endsAt.getTime() - slot.startsAt.getTime() > MAX_BOOKING_HOURS * 3_600_000) {
@@ -44,13 +46,14 @@ export const createBookingSchema = slotFields.extend(bookingDetailsSchema.shape)
 export const moveBookingSchema = slotFields.superRefine(slotIsValid);
 
 /** GET /api/bookings?from=&to= */
-export const rangeSchema = z
-  .object({ from: instant, to: instant })
-  .refine((r) => r.to > r.from, { path: ["to"], message: "`to` must be after `from`." })
-  .refine((r) => r.to.getTime() - r.from.getTime() <= 62 * 86_400_000, {
-    path: ["to"],
-    message: "Ask for at most 62 days at a time.",
-  });
+export const rangeSchema = z.object({ from: instant, to: instant }).superRefine((range, ctx) => {
+  if (!(range.from instanceof Date) || !(range.to instanceof Date)) return; // see slotIsValid
+  if (range.to <= range.from) {
+    ctx.addIssue({ code: "custom", path: ["to"], message: "`to` must be after `from`." });
+  } else if (range.to.getTime() - range.from.getTime() > 62 * 86_400_000) {
+    ctx.addIssue({ code: "custom", path: ["to"], message: "Ask for at most 62 days at a time." });
+  }
+});
 
 export type CreateBookingInput = z.output<typeof createBookingSchema>;
 export type MoveBookingInput = z.output<typeof moveBookingSchema>;
