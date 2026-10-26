@@ -2,15 +2,15 @@
 
 Raw notes for the blog post. Each step lists what was done, what went wrong
 (exact commands and messages), what worked well, and roughly how long it took.
-Times are wall-clock for an agent working in a cloud container, so they are
-short for reading and long for anything that waits on a human.
+Times are agent wall-clock in a cloud container, from the commit timestamps;
+steps that need a human (the Prisma browser login) are listed separately.
 
 Environment: Node 22.22.0, npm 10.9.4, Bun 1.4.4, PostgreSQL 16 client and
 server binaries, Linux container behind an egress proxy.
 
 ---
 
-## Step 0: Research (2026-10-26, ~10 min)
+## Step 0: Research (2026-10-26, 19:07 to 19:14, ~7 min)
 
 ### resource-scheduler (the package)
 
@@ -140,7 +140,7 @@ These are the biggest findings, and they change the plan:
 
 ---
 
-## Step 1: Scaffold (~5 min)
+## Step 1: Scaffold (19:18 to 19:24, ~6 min, 2 of them npm install)
 
 ```bash
 npx create-prisma@0.14.4 resource-scheduler-prisma-template --template next \
@@ -206,7 +206,7 @@ alchemy: node 22.22.0 is not supported. Upgrade to node 24.11.1 or newer.
 
 ---
 
-## Step 2: Data contract, migration, seed (~20 min)
+## Step 2: Data contract, migration, seed (19:24 to 19:31, ~7 min)
 
 - `contract.prisma` in ORM 8 PSL: `Room` (`name @unique`, `floor`, `seats`)
   and `Booking` (`title`, `booker`, `roomId`, `startsAt`, `endsAt`,
@@ -273,7 +273,7 @@ alchemy: node 22.22.0 is not supported. Upgrade to node 24.11.1 or newer.
 
 ---
 
-## Step 3: Booking API (~25 min)
+## Step 3: Booking API (19:31 to 19:35, ~4 min)
 
 ### How the server guards against double booking
 
@@ -341,7 +341,7 @@ failures, and the losers get a precise message instead of "try again".
 
 ---
 
-## Step 4: The board (~30 min)
+## Step 4: The board (19:35 to 19:40, ~5 min)
 
 - Straight from the package docs and types, nothing invented:
   `events` (flat, `resourceId`), `resources` with `group` (floors) and
@@ -381,7 +381,7 @@ failures, and the losers get a precise message instead of "try again".
 
 ---
 
-## Step 5: Tests (~25 min)
+## Step 5: Tests (19:40 to 19:45, ~5 min)
 
 - Vitest 5. `npm test` runs 25 unit tests anywhere; with `TEST_DATABASE_URL`
   set it also runs 15 integration tests against real PostgreSQL (global setup
@@ -415,7 +415,7 @@ failures, and the losers get a precise message instead of "try again".
 
 ---
 
-## Step 6: Production build and the Compute-like local run (~20 min)
+## Step 6: Production build and the Compute-like local run (19:45 to 19:50, ~5 min)
 
 - `npm run build` (Next 16.4.2, Turbopack): 13 s, all routes dynamic.
 - **Gotcha: `next build` copies `.env` into `.next/standalone`.** Next copies
