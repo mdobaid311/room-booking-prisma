@@ -4,7 +4,10 @@ import { execFileSync } from "node:child_process";
 // way a deploy does. Without TEST_DATABASE_URL the integration tests skip.
 export default function setup() {
   const url = process.env.TEST_DATABASE_URL;
-  if (!url) return;
+  if (!url) {
+    console.warn("\nTEST_DATABASE_URL is not set: skipping the PostgreSQL integration tests. See the README.\n");
+    return;
+  }
   execFileSync("npx", ["prisma", "db", "migrate", "--yes"], {
     env: { ...process.env, DATABASE_URL: url },
     stdio: "pipe",

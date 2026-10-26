@@ -378,3 +378,37 @@ failures, and the losers get a precise message instead of "try again".
     (the docs say so). The board skips the first call itself.
   - A 30-minute card shows "Daily st…": no tooltip with the full title on
     hover (the popover has it on click).
+
+---
+
+## Step 5: Tests (~25 min)
+
+- Vitest 5. `npm test` runs 25 unit tests anywhere; with `TEST_DATABASE_URL`
+  set it also runs 15 integration tests against real PostgreSQL (global setup
+  runs `prisma db migrate --yes` on it first, the same path a deploy takes).
+- The integration tests cannot use the local `prisma dev` database: it is
+  PGlite, a single session shared by every connection, so row locks between
+  "two users" mean nothing there. Used PostgreSQL 16 (also works with the
+  `postgres` Docker image).
+- What they show:
+  - 25 simultaneous `createBooking` calls for one slot: exactly 1 ok,
+    24 `conflict`, 1 row.
+  - a create and a move racing for one slot: one wins.
+  - 10 rounds of two bookings swapping rooms at once: no deadlock.
+  - with the exclusion constraint dropped, still exactly 1 of 25: the room
+    lock alone is enough.
+  - with the constraint dropped, a plain check-then-insert (two transactions
+    that both read "free") **does double-book**: why the lock exists.
+  - with the lock skipped, Postgres refuses the overlap itself (`23P01`).
+  - five concurrent `seedIfEmpty` calls insert the demo data once.
+- **Mutation-tested the guard:** removing `forNoKeyUpdate()` on the room
+  makes "the room lock alone" fail; removing the `.sort()` of the lock order
+  makes the swap test fail with a real deadlock surfacing as a conflict.
+  5 of 5 repeated runs green, ~6 s.
+- **Bug the tests found:** zod 4 still runs an object's `superRefine` when one
+  of its fields failed to parse, so `"startsAt": "tomorrow"` (everything else
+  valid) reached `slot.startsAt.getTime()` on a string and the API answered
+  **500**. Reproduced with curl (`[500]`), guarded the refinement, now `400`
+  with `startsAt: ["Use an ISO 8601 date and time with a time zone."]`. The
+  same pattern was in the range schema of `GET /api/bookings`. My earlier
+  curl test missed it because other fields were also invalid in that request.
