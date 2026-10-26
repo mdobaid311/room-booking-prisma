@@ -1,4 +1,4 @@
-import { db, ensureSeeded } from "@/src/prisma/db";
+import { db, ensureSeeded } from "@/prisma/db";
 
 export const dynamic = "force-dynamic"; // read the database per request, not at build time
 
