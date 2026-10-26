@@ -442,3 +442,72 @@ failures, and the losers get a precise message instead of "try again".
   normally 2 s later with the right data.
 - Repo size for the Deploy Button: 49 tracked files, < 1 MB (limits: 100
   files, 25 MB).
+
+---
+
+## Step 7: Docs and a fresh clone (19:50 to 20:03, ~13 min)
+
+- README (what, Deploy button, how the guard works, local setup, deploy,
+  env vars, host/port, scripts, structure, tests, extending,
+  troubleshooting), MIT LICENSE, `.env.example`, `AGENTS.md` project rules.
+- Removed the generated `prisma-8.md`: it describes a different
+  `prisma.config.ts` than the one generated next to it (see Step 1).
+- Dropped `db:init` / `db:update` (they change the schema without a
+  migration, so a later `db migrate` would disagree with the database) and
+  `start` (`next start` warns: `"next start" does not work with "output:
+  standalone" configuration. Use "node .next/standalone/server.js"
+  instead.`).
+- **Host/port, checked in the source rather than assumed:** the Composer
+  `nextjs` adapter copies `.next/standalone` verbatim (`copyTreeVerbatim`,
+  plus `static/` and `public/`), and its bootstrap imports Next's
+  `server.js`, which listens on `process.env.HOSTNAME || '0.0.0.0'` and
+  `PORT`. Compute sets `PORT`. So nothing to configure, as long as nobody adds
+  `HOSTNAME`/`HOST` to the project env. Will confirm on the real deploy.
+- **Fresh clone** of the pushed branch into an empty directory on Node 24:
+  `npm ci` 46 s; lint, typecheck, 40/40 tests against a new database, build;
+  `prisma dev module.ts --detach --fresh` up in 11 s, page renders the seeded
+  rooms, `GET /api/bookings` returns 15 bookings; `git status` clean after
+  building and running.
+- My own mistakes, for honesty: `npm run dev:composer -- --detach --fresh`
+  does not pass the flags to `prisma dev` (npm appends them to the last
+  command as npm flags), so it ran in watch mode until my timeout (~7 min
+  lost). And a second checkout with the same module name gets
+  `http://localhost:3001`, not 3000 (Composer keeps ports per app name), so
+  my first `curl localhost:3000` showed nothing.
+
+### Time so far
+
+| Step | Agent time |
+| --- | --- |
+| 0. Research (docs blocked, read from GitHub sources) | ~7 min |
+| 1. Scaffold with create-prisma | ~6 min |
+| 2. Contract, migration with exclusion constraint, seed | ~7 min |
+| 3. Booking API with row locks | ~4 min |
+| 4. Scheduler board, dialog, optimistic updates | ~5 min |
+| 5. Tests, mutation checks, a 500 found and fixed | ~5 min |
+| 6. Build size and env leak fixes, Compute-like run | ~5 min |
+| 7. Docs and fresh clone | ~13 min |
+| **Total before deploy** | **~55 min** |
+
+---
+
+## Step 8: Deploy to Prisma Compute (pending: needs a human)
+
+- This cloud container cannot reach `api.prisma.io` or
+  `console.prisma.io` (egress policy, `CONNECT tunnel failed, response
+  403`), and `npx prisma auth login` opens a browser. So the deploy is the
+  one step the agent cannot do here.
+- Commands for the person deploying (Node 24.11.1+ and Bun installed):
+
+  ```bash
+  git clone <repo> && cd <repo>
+  npm ci
+  npx prisma auth login
+  npx prisma auth whoami --json
+  npm run deploy
+  ```
+
+- To record here: how long each command took, the exact output (URL, ids),
+  any error text, whether the first visit seeds the demo data, the cold
+  start time, and the boot log (`npx prisma project link
+  resource-scheduler-prisma-template`, `npx prisma service logs app`).
