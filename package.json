@@ -10,7 +10,7 @@
     "composer:dev": "prisma dev module.ts",
     "contract:emit": "prisma contract emit",
     "db:init": "prisma db init",
-    "db:seed": "node --env-file-if-exists=.env src/prisma/seed-cli.ts",
+    "db:seed": "node --env-file-if-exists=.env.local src/prisma/seed-cli.ts",
     "db:update": "prisma db update",
     "db:verify": "prisma db verify",
     "deploy": "npm run build && npm run composer:deploy",

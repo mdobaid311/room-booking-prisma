@@ -5,12 +5,14 @@ import { nodeBuild } from "@prisma/composer/node/control";
 import { nextjsBuild } from "@prisma/composer/nextjs/control";
 import { prismaCloud, prismaState } from "@prisma/composer-prisma-cloud/control";
 
-// The prisma CLI does not read .env by itself; load it when there is one, so
-// `cp .env.example .env` is all the local setup the db:* scripts need.
+// The prisma CLI does not read env files by itself. Load .env.local when there
+// is one, so `cp .env.example .env.local` is all the local setup the db:*
+// scripts need. Not .env: `next build` copies .env into the standalone output
+// that `prisma deploy` uploads, and a local database URL has no business there.
 try {
-  process.loadEnvFile();
+  process.loadEnvFile(".env.local");
 } catch {
-  // no .env: use the environment as it is (CI, Composer deploys)
+  // no .env.local: use the environment as it is (CI, Composer deploys)
 }
 
 export default definePrismaConfig({
