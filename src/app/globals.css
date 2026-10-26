@@ -1,5 +1,36 @@
+/* Page styles. The scheduler brings its own scoped stylesheet
+   (resource-scheduler/style.css) and is themed with --rs-* variables. */
+
 :root {
-  color-scheme: light;
+  color-scheme: light dark;
+  --bg: #ffffff;
+  --fg: #111827;
+  --muted: #4b5563;
+  --border: #e5e7eb;
+  --surface: #f9fafb;
+  --primary: #2563eb;
+  --primary-fg: #ffffff;
+  --danger: #b91c1c;
+  --success-bg: #ecfdf5;
+  --success-fg: #065f46;
+  --error-bg: #fef2f2;
+  --error-fg: #991b1b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b0f17;
+    --fg: #e5e7eb;
+    --muted: #9ca3af;
+    --border: #1f2937;
+    --surface: #111827;
+    --primary: #3b82f6;
+    --danger: #f87171;
+    --success-bg: #052e22;
+    --success-fg: #6ee7b7;
+    --error-bg: #3b0d0d;
+    --error-fg: #fca5a5;
+  }
 }
 
 * {
@@ -8,115 +39,185 @@
 
 body {
   margin: 0;
+  background: var(--bg);
+  color: var(--fg);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-  background: #fff;
-  color: #111;
+  line-height: 1.5;
 }
 
-.shell {
-  max-width: 40rem;
+a {
+  color: var(--primary);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.page {
+  max-width: 76rem;
   margin: 0 auto;
-  padding: 3rem 1.5rem;
+  padding: 2rem 1rem 3rem;
 }
 
-.hero {
-  margin-bottom: 1.5rem;
+.page-header h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
 }
 
-.eyebrow {
-  margin: 0 0 0.5rem;
-  color: #666;
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+.page-header p {
+  margin: 0 0 1rem;
+  max-width: 48rem;
 }
 
-h1 {
-  margin: 0;
-  font-size: 1.25rem;
-  font-weight: 600;
-  line-height: 1.4;
-}
-
-.lede {
-  margin: 0.5rem 0 0;
-  color: #666;
+.page-footer {
+  margin-top: 1rem;
   font-size: 0.875rem;
-  line-height: 1.6;
 }
 
-.panel {
-  border: 1px solid #e5e5e5;
-  border-radius: 0.5rem;
-  padding: 1rem;
+.board-status {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.875rem;
 }
 
-.panelHeader {
+.board-status p {
+  margin: 0;
+}
+
+.notice-slot {
+  min-height: 3rem;
+  padding: 0.5rem 0;
+}
+
+.notice {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
 }
 
-h2 {
+.notice.success {
+  background: var(--success-bg);
+  color: var(--success-fg);
+}
+
+.notice.error {
+  background: var(--error-bg);
+  color: var(--error-fg);
+}
+
+.notice-close {
+  border: 0;
+  background: none;
+  color: inherit;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* The scheduler fills its parent, so the parent needs a height. */
+.board-frame {
+  height: min(36rem, 75vh);
+  min-height: 26rem;
+}
+
+.button {
+  padding: 0.5rem 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.button.primary {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-fg);
+}
+
+.button.danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.dialog {
+  width: min(26rem, calc(100vw - 2rem));
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.dialog::backdrop {
+  background: rgb(0 0 0 / 0.4);
+}
+
+.dialog h2 {
   margin: 0;
+  font-size: 1.125rem;
+}
+
+.dialog-when {
+  margin: 0.25rem 0 1rem;
+  font-size: 0.875rem;
+}
+
+.field {
+  margin-bottom: 0.875rem;
+}
+
+.field label {
+  display: block;
+  margin-bottom: 0.25rem;
   font-size: 0.875rem;
   font-weight: 600;
 }
 
-.panelHeader span,
-.empty,
-time {
-  color: #888;
-  font-size: 0.8rem;
+.field input {
+  width: 100%;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
 }
 
-.panel p {
-  color: #666;
-  font-size: 0.8rem;
+.field input[aria-invalid="true"] {
+  border-color: var(--danger);
 }
 
-.users {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.field-error {
+  margin: 0.25rem 0 0;
+  color: var(--danger);
+  font-size: 0.8125rem;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.details {
   display: grid;
   gap: 0.5rem;
+  font-size: 0.875rem;
 }
 
-.users li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.625rem 0.75rem;
-  border: 1px solid #eee;
-  border-radius: 0.375rem;
+.details p {
+  margin: 0;
 }
 
-.users p {
-  margin: 0.125rem 0 0;
-}
-
-time {
-  font-size: 0.75rem;
-  white-space: nowrap;
-}
-
-code {
-  padding: 0.125rem 0.25rem;
-  border-radius: 0.25rem;
-  background: #f5f5f5;
-  font-family: SFMono-Regular, Consolas, monospace;
-  font-size: 0.875em;
-}
-
-@media (max-width: 640px) {
-  .users li,
-  .panelHeader {
-    flex-direction: column;
-    align-items: flex-start;
-  }
+.details-title {
+  font-weight: 600;
 }

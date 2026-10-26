@@ -29,3 +29,13 @@ export function formatOfficeTime(date: Date): string {
     minute: "2-digit",
   }).format(date);
 }
+
+/** Formats an instant as a day on the office clock: "Tue, Oct 27". */
+export function formatOfficeDay(date: Date): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: OFFICE_TIME_ZONE,
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  }).format(date);
+}
