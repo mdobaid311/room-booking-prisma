@@ -203,3 +203,70 @@ alchemy: node 22.22.0 is not supported. Upgrade to node 24.11.1 or newer.
   Compute, against a local Prisma Postgres emulator
   (`prisma dev url database` prints its connection string). No credentials.
   This is a very good local loop.
+
+---
+
+## Step 2: Data contract, migration, seed (~20 min)
+
+- `contract.prisma` in ORM 8 PSL: `Room` (`name @unique`, `floor`, `seats`)
+  and `Booking` (`title`, `booker`, `roomId`, `startsAt`, `endsAt`,
+  `createdAt`). Ids are `String @id @onCreate(cuid(2))`: `@default(cuid())`
+  from ORM 7 is now a generated value (`@onCreate`), and `cuid()` needs its
+  version.
+- **Time types are a real decision in ORM 8.** `DateTime` reads as
+  `Temporal.Instant` (needs a global `Temporal`; Node 24 has none, so the
+  scaffold imports `temporal-polyfill/global`), `TimestamptzString` as a
+  string, `TimestamptzJsDate` as a JS `Date`. The scheduler wants `Date`, so
+  bookings use `TimestamptzJsDate`. The PSL page explains it well, once found.
+- `@@check(expression: sql\`"endsAt" > "startsAt"\`, name: ...)` works and lands
+  in the migration as `booking_ends_after_start_20c1ac54` (a hash suffix is
+  added to `name:`).
+- `npx prisma contract emit` and `npx prisma migration plan --name init` both
+  worked first time. `migration plan` prints the full SQL it will run, which
+  is excellent for review. Nit: it adds an index on the foreign key
+  (`Booking_roomId_idx`) next to my `@@index([roomId, startsAt])`, which already
+  covers `roomId`, so one index is redundant.
+
+### Exclusion constraint (database-level double-booking guard)
+
+- The contract cannot express `EXCLUDE USING gist`. The docs' "Limitations"
+  section says to put such things in a raw SQL step, so I edited the planned
+  `migration.ts`: `createExtension('btree_gist')` first, and a `rawSql({...})`
+  with precheck/execute/postcheck at the end:
+  `EXCLUDE USING gist ("roomId" WITH =, tstzrange("startsAt", "endsAt", '[)') WITH &&)`.
+  Then `node migrations/app/<dir>/migration.ts` recompiles `ops.json`.
+- `npx prisma migration check` passed, `npx prisma db migrate --yes` applied
+  9 operations, and **`npx prisma db verify` accepted the extra constraint**
+  ("full (marker + schema, tolerant)"). I was worried it would flag schema
+  drift; it does not.
+- `btree_gist` is on Prisma Postgres's supported-extension list, and the
+  local `prisma dev` database (it is **PGlite: "PostgreSQL 17.5 on
+  wasm32-unknown-linux-gnu"**) has it too, so the same migration runs locally,
+  in previews and in production.
+- Doc inconsistency: the Prisma Postgres "Extensions" page still teaches the
+  ORM 7 flow (`prisma migrate dev --create-only`, `migration.sql`) and links
+  to `/orm/v7/...`, while the ORM 8 docs are the default everywhere else.
+
+### Seed
+
+- `create-prisma` seeds on the first query and ships no seed command. Kept
+  that idea (`ensureSeeded()` on the first page load, so a Deploy Button copy
+  shows rooms) and added `npm run db:seed` (`-- --reset` to start over).
+  Concurrent first requests are serialized with `pg_advisory_xact_lock`
+  through `tx.raw.sql\`...\`.affectedCount().build()`.
+- Times are seeded on the office clock (`Europe/Berlin`) with `zonedToUtc`
+  and `utcToZoned` from `resource-scheduler/headless`, so "09:00" is 09:00
+  in the office however the server's clock is set.
+- The `prisma` CLI does not read `.env` (the generated `prisma-8.md` says it
+  does). Added `process.loadEnvFile()` in a `try` to `prisma.config.ts`, and
+  `node --env-file-if-exists=.env` to the seed script. Node 22.22 runs the
+  `.ts` seed directly (type stripping), no `tsx` needed.
+
+### npm audit
+
+- After install: **14 vulnerabilities (5 moderate, 9 high)**, all inside
+  Prisma's own tooling: `lodash` via `chevrotain` via `@mrleebo/prisma-ast`
+  via `@prisma/dev`, `hono` and `@hono/node-server` via `@prisma/dev`,
+  `valibot` via `alchemy`. `npm audit fix --force` would "fix" them by
+  installing `@prisma/composer@0.6.0` or `prisma@7.10.1`, i.e. downgrading
+  the platform. Left as is; dev and deploy tooling, not app runtime code.
