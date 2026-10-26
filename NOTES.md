@@ -124,3 +124,82 @@ These are the biggest findings, and they change the plan:
   are not supported"), and the skill adds ~12 files toward the 100-file limit.
   Ran it in a scratch directory instead of the template; the template's README
   tells contributors to run it locally.
+
+### Decisions (from Prisma's brief: "end to end on Prisma ORM, Prisma Postgres and Prisma Compute, ideally with an AI agent doing the setup")
+
+- **Prisma ORM 8 (RC) + Composer `postgres(contract)`**, not ORM 7. It is the
+  only path where the deploy provisions the database *and* applies the
+  migrations, so a Deploy Button copy works with zero setup. Cost: an RC API,
+  and no isolation levels (row locks replace `Serializable`, see Step 3).
+- No `prisma.compute.ts` / `compute:deploy`: they no longer exist. The
+  equivalents are `module.ts` + `service.ts` and the `deploy` script.
+- Seed: `npm run db:seed`, plus seed-if-empty on first request so a fresh
+  deploy shows rooms.
+- An AI agent (in a cloud container) does every step; the human
+  steps are only the ones that need a browser (Prisma login).
+
+---
+
+## Step 1: Scaffold (~5 min)
+
+```bash
+npx create-prisma@0.14.4 resource-scheduler-prisma-template --template next \
+  --provider postgres --authoring psl --package-manager npm --skills none \
+  --yes --json --no-deploy
+```
+
+- Took **1 min 58 s**, almost all `npm install`. Exit 0, one JSON line out:
+  `{"ok":true,...,"nextSteps":[..."npm run dev:composer"..."npm run deploy"...]}`.
+  Good for agents: no prompts, no parsing of prose.
+- `--help` does not list `--no-deploy`, but the docs and skill use it and it
+  is accepted.
+- Generated: Next 16.4.2, React 19.3.1, `prisma@8.0.0-rc.27`,
+  `@prisma/orm-postgres@8.0.0-rc.20`, `@prisma/composer(-prisma-cloud)@0.34.0`,
+  `alchemy@2.0.0-beta.83` (imported by Composer's deploy control code), an
+  `overrides` block pinning `effect@4.0.3`, `module.ts`, `service.ts`,
+  `prisma.config.ts` with `orm` + `composer` sections, a starter User/Post
+  contract and an already-planned `init` migration.
+- `node_modules` is **2.1 GB** for a starter.
+- Untouched scaffold: `tsc --noEmit`, `eslint` and `next build` (11.5 s) all
+  pass.
+
+### Scaffold rough edges
+
+- **`.gitignore` misses Next.js output.** It has only `node_modules/ dist/
+  .env /.alchemy /.prisma-composer`. After one `next build`, `git status`
+  shows `.next/`, `next-env.d.ts` and `tsconfig.tsbuildinfo` as untracked.
+  Fixed in the template.
+- **`prisma-8.md` (generated) disagrees with the generated files.** It shows
+  a `prisma.config.ts` with `import 'dotenv/config'` and
+  `definePrismaConfig` from `'@prisma/cli-engine'`, and says the config
+  "loads environment variables from `.env` automatically"; the real file
+  imports `prisma/config` and loads no `.env`. It shows `createdAt: Date` in a
+  type, while the contract uses `TimestamptzString` (a string). It also says
+  "the Prisma ORM plugin will do this for you automatically" for Next.js;
+  no plugin is configured.
+- `.env.example` says "Copy this file to `.env`", while the Next.js guide says
+  "the generated scripts read the environment variable, not `.env`". Both
+  are half true: `next dev` reads `.env`, the `prisma` CLI does not.
+
+### `prisma dev module.ts` needs Node 24.11.1, not 22.18
+
+```text
+$ npx prisma dev module.ts --detach        # Node 22.22.0
+[dev] compute emulator ready at http://127.0.0.1:4300
+[dev] postgres emulator ready at http://127.0.0.1:4301
+alchemy: node 22.22.0 is not supported. Upgrade to node 24.11.1 or newer.
+```
+
+- The docs, the skill, and the `engines` of `prisma`, `@prisma/composer` and
+  `@prisma/composer-prisma-cloud` all say `^22.18.0 || ^24.11.0 || >=26`.
+  `alchemy` declares no `engines` and checks at runtime (`module.registerHooks`
+  support, nodejs/node#59929). So `npm install` succeeds on Node 22 and the
+  first local run fails. The command still **exits 0**.
+- Fix: Node 24 (`node-linux-x64@24.22.1` from npm, since nodejs.org is not
+  reachable here). The template ships `.nvmrc` = `24` and says Node 24.11.1+.
+- With Node 24: `prisma dev module.ts --detach` converged 9 resources in
+  2.0 s, ~15 s total, and served the starter page on `http://localhost:3000`
+  with the seeded users. The app runs under **Bun** (`bun bootstrap.js`), as on
+  Compute, against a local Prisma Postgres emulator
+  (`prisma dev url database` prints its connection string). No credentials.
+  This is a very good local loop.
