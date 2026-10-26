@@ -412,3 +412,33 @@ failures, and the losers get a precise message instead of "try again".
   with `startsAt: ["Use an ISO 8601 date and time with a time zone."]`. The
   same pattern was in the range schema of `GET /api/bookings`. My earlier
   curl test missed it because other fields were also invalid in that request.
+
+---
+
+## Step 6: Production build and the Compute-like local run (~20 min)
+
+- `npm run build` (Next 16.4.2, Turbopack): 13 s, all routes dynamic.
+- **Gotcha: `next build` copies `.env` into `.next/standalone`.** Next copies
+  `.env` and `.env.production` (`loadedEnvFiles` in `next/dist/build`), and
+  the Composer `nextjs` adapter deploys that folder. So the obvious flow
+  (`cp .env.example .env`, `npm run deploy` from a laptop) would upload the
+  local `DATABASE_URL` to Compute. Unused there (Composer's client wins), but
+  a credential should not ship. Fix: local settings live in `.env.local`
+  (read by `next dev`, never copied); `prisma.config.ts` and the seed script
+  load it. Neither create-prisma nor the docs mention this.
+- **Bundle size:** the standalone output was **70 MB**, 46 MB of it sharp's
+  `@img` binaries for `next/image`, which this app does not use.
+  `images: { unoptimized: true }` alone did not remove them; adding
+  `outputFileTracingExcludes` for `sharp` and `@img` did: **23 MB**.
+- `prisma dev module.ts --detach --fresh` = a first deploy in miniature:
+  empty database, Composer applies the committed migrations (including the
+  hand-written exclusion constraint), the standalone build runs **on Bun**.
+  Up in ~11 s; first `GET /` 0.62 s (seeds the demo data), then 0.02 s.
+  The ORM 8 client from `service.load().database.client` worked unchanged.
+- All browser flows from Step 4 pass on this stack too, and 20 concurrent
+  `POST`s gave 1 × 201 and 19 × 409 even on PGlite.
+- Rough edge: right after that burst, `psql` against the PGlite emulator
+  failed once with `server closed the connection unexpectedly`; it answered
+  normally 2 s later with the right data.
+- Repo size for the Deploy Button: 49 tracked files, < 1 MB (limits: 100
+  files, 25 MB).
