@@ -338,3 +338,43 @@ failures, and the losers get a precise message instead of "try again".
   next.config to disable.` It asks to be committed, so it is. Checked the
   bundled docs: `export const dynamic = "force-dynamic"` is still valid
   without Cache Components.
+
+---
+
+## Step 4: The board (~30 min)
+
+- Straight from the package docs and types, nothing invented:
+  `events` (flat, `resourceId`), `resources` with `group` (floors) and
+  `role` ("8 seats"), `timeZone`, `initialDate`, `slotDuration`,
+  `dayStartHour`/`dayEndHour` as opening hours, `nowIndicator`,
+  `eventOverlap`/`isValidDrop` from the shared `bookingRules()`,
+  `onSlotSelect` for my own `<dialog>`, `onEventDrop`/`onEventResize`,
+  `onRangeChange` to load other days, `renderEventPopover` for a "Cancel
+  booking" button, `labels={{ resources: "Rooms" }}`, and
+  `data-theme="system"` on `<html>` for dark mode.
+- **Worked well:** the `timeZone` prop. Handlers get instants ready to
+  store, render props get wall-clock dates, and `utcToZoned` makes the same
+  rule work on the server. The red footprint appears exactly where the rule
+  says no.
+- Verified in Chromium with Playwright (dev server, local Postgres):
+  - drag-select Borealis 10:00 to 11:00 opens my dialog with "Tue, Oct 27,
+    10:00 AM to 11:00 AM (Europe/Berlin)"; empty submit shows the zod
+    messages without a request; Book shows a grey pending card, then
+    "Booked Borealis, 10:00 AM to 11:00 AM."
+  - dragging a booking onto a busy slot tints the footprint red, and **no
+    request is sent**.
+  - two tabs, same slot: the stale tab's optimistic booking is rolled back
+    with `Delta is already booked from 1:00 PM to 1:30 PM ("Winner").`
+  - move to another room (PATCH 200), popover "Cancel booking" (DELETE 204),
+    "Next period" loads the next day (GET 200). No console or page errors.
+- **Fixed after the first run:** after a 409 the stale tab still did not
+  show the booking that won, so the user could not see what was in the way.
+  The board now reloads the visible day after any conflict.
+- Small rough edges in the package UI:
+  - the column header is `labels.resources` ("RESOURCES"); easy to rename,
+    but a room app has to know the key exists.
+  - With `onRangeChange` the first call fires on mount even when the page
+    already has that day's data, and React Strict Mode fires it twice in dev
+    (the docs say so). The board skips the first call itself.
+  - A 30-minute card shows "Daily st…": no tooltip with the full title on
+    hover (the popover has it on click).
