@@ -1,0 +1,30 @@
+# Deploys every pushed branch to Prisma Compute: main to production, any other
+# branch to a preview of the same name. Needs the repository connected to the
+# Prisma project (Console, or `npx prisma git connect`); the run exchanges its
+# GitHub OIDC token for a short-lived deploy credential, so no secrets.
+name: prisma-deploy
+
+on:
+  push:
+
+concurrency:
+  group: prisma-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    if: github.ref_type == 'branch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - uses: oven-sh/setup-bun@v2
+      - uses: prisma/cloud-deploy-action@v1
+        with:
+          build-command: npm run build
