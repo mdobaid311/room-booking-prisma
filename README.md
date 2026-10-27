@@ -12,14 +12,15 @@ production-ready starter built end to end on the Prisma platform:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png" />
-  <img src="docs/screenshot-light.png" alt="Six meeting rooms on two floors as rows, half hours from 8 AM as columns, with bookings such as Sprint planning and Design review" width="1440" />
+  <img src="docs/screenshot-light.png" alt="Six room plates saying which rooms are free right now, above a timeline of the day's bookings colored by floor" width="1440" />
 </picture>
 
 <!-- GIF placeholder: a 10-second clip of drag-to-book, a red footprint on a taken slot, and a second tab losing the race. -->
 
 ## What it does
 
-- Rooms are rows, half hours from 08:00 to 18:00 are columns, grouped by floor.
+- A plate per room, like the sign by a meeting room door, says whether it is free right now and until when. **Book now** takes the current half hour.
+- Rooms are rows, half hours from 08:00 to 18:00 are columns, grouped by floor. Each floor has a color, on its plates and its bookings, and every room shows how much of its day is booked.
 - Drag across free time and your own booking form opens (`onSlotSelect`). Drag a booking to move it, drag its edge to resize it, click it to cancel it.
 - A taken slot, a time outside opening hours, or one that has already started turns red before you drop (`eventOverlap`, `isValidDrop`), so most mistakes never reach the server.
 - The server checks again inside a transaction, with the same rules, so two people booking the same slot at the same moment cannot both win. The loser's change rolls back on screen with a message that says what is in the way.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ResourceScheduler, ViewType } from "resource-scheduler";
 import type { Placement, ResourceInput, SchedulerEvent, VisibleRange } from "resource-scheduler";
 import "resource-scheduler/style.css";
@@ -12,6 +12,7 @@ import { bookingRules } from "@/lib/rules";
 
 import { BookingDialog, rememberBooker } from "./booking-dialog";
 import type { BookingDetails, BookingDraft } from "./booking-dialog";
+import { RoomStatus } from "./room-status";
 
 type Booking = {
   id: string;
@@ -26,7 +27,8 @@ type Booking = {
 
 type Notice = { kind: "success" | "error"; text: string };
 
-const PENDING_COLOR = "#94a3b8";
+const PENDING_COLOR = "var(--pending)";
+const FLOOR_COLORS = 4; // --floor-1 to --floor-4 in globals.css, reused when there are more floors
 const rules = bookingRules();
 
 const fromDTO = (b: BookingDTO): Booking => ({
@@ -50,39 +52,61 @@ export function Board({
   rooms,
   initialBookings,
   initialDate,
+  serverNow,
 }: {
   rooms: RoomDTO[];
   initialBookings: BookingDTO[];
   initialDate: string;
+  /** The server's clock at render, so the first paint of the room plates matches on both sides. */
+  serverNow: string;
 }) {
   const [bookings, setBookings] = useState(() => initialBookings.map(fromDTO));
   const [start] = useState(() => new Date(initialDate));
+  const [now, setNow] = useState(() => new Date(serverNow));
   const [draft, setDraft] = useState<BookingDraft | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [loading, setLoading] = useState(false);
   const visibleRange = useRef<VisibleRange | null>(null);
   const loadController = useRef<AbortController | null>(null);
 
+  // The room plates say "free" or "in use" on the minute.
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 15_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Success messages fade on their own; errors stay until dismissed.
+  useEffect(() => {
+    if (notice?.kind !== "success") return;
+    const timer = setTimeout(() => setNotice(null), 5_000);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
   const roomName = (id: string) => rooms.find((r) => r.id === id)?.name ?? "the room";
+
+  // Every floor gets a color, like the signs in an office building, on its plates and its bookings.
+  const floorColor = useMemo(() => {
+    const floors = [...new Set(rooms.map((r) => r.floor))];
+    return (floor: string) => `var(--floor-${(floors.indexOf(floor) % FLOOR_COLORS) + 1})`;
+  }, [rooms]);
 
   const resources = useMemo<ResourceInput[]>(
     () => rooms.map((r) => ({ id: r.id, name: r.name, role: `${r.seats} seats`, group: r.floor })),
     [rooms],
   );
 
-  const events = useMemo<SchedulerEvent[]>(
-    () =>
-      bookings.map((b) => ({
-        id: b.id,
-        title: b.title,
-        description: `Booked by ${b.booker}`,
-        resourceId: b.roomId,
-        startDate: b.startsAt,
-        endDate: b.endsAt,
-        ...(b.pending && { color: PENDING_COLOR }),
-      })),
-    [bookings],
-  );
+  const events = useMemo<SchedulerEvent[]>(() => {
+    const floorOf = new Map(rooms.map((r) => [r.id, r.floor]));
+    return bookings.map((b) => ({
+      id: b.id,
+      title: b.title,
+      description: `Booked by ${b.booker}`,
+      resourceId: b.roomId,
+      startDate: b.startsAt,
+      endDate: b.endsAt,
+      color: b.pending ? PENDING_COLOR : floorColor(floorOf.get(b.roomId) ?? ""),
+    }));
+  }, [bookings, rooms, floorColor]);
 
   // The shared rules, plus one that only matters in the browser: a booking
   // that is still being saved cannot be moved yet.
@@ -190,19 +214,32 @@ export function Board({
 
   return (
     <>
-      <div className="board-status">
+      <RoomStatus
+        rooms={rooms}
+        bookings={bookings}
+        now={now}
+        floorColor={floorColor}
+        onBook={(room, slot) => setDraft({ resourceId: room.id, ...slot, roomName: room.name })}
+      />
+
+      <div className="board-head">
+        <h2>Timeline</h2>
         <p className="muted">
-          Drag across free time to book. Drag a booking to move it, or its edge to resize it. Times are{" "}
-          {OFFICE_TIME_ZONE} time.
+          Drag across free time to book. Drag a booking to move it, drag its edge to resize it, click it to cancel.
+          Times are {OFFICE_TIME_ZONE} time.
         </p>
-        {loading && <span className="muted">Loading…</span>}
+        {loading && (
+          <span className="loading" role="status">
+            Loading…
+          </span>
+        )}
       </div>
 
-      <div className="notice-slot" aria-live="polite">
+      <div className="toast-region" aria-live="polite">
         {notice && (
-          <div className={`notice ${notice.kind}`} role={notice.kind === "error" ? "alert" : "status"}>
+          <div className={`toast ${notice.kind}`} role={notice.kind === "error" ? "alert" : "status"}>
             <span>{notice.text}</span>
-            <button type="button" className="notice-close" aria-label="Dismiss" onClick={() => setNotice(null)}>
+            <button type="button" className="toast-close" aria-label="Dismiss" onClick={() => setNotice(null)}>
               ×
             </button>
           </div>
@@ -221,6 +258,8 @@ export function Board({
           dayStartHour={OPEN_HOUR}
           dayEndHour={CLOSE_HOUR}
           nowIndicator
+          showUtilization
+          businessHours={{ daysOfWeek: [0, 1, 2, 3, 4, 5, 6], startHour: OPEN_HOUR, endHour: CLOSE_HOUR }}
           ariaLabel="Meeting room bookings"
           labels={{ resources: "Rooms" }}
           eventOverlap={rules.eventOverlap}
