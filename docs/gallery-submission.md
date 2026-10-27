@@ -16,7 +16,7 @@ folder. So the submission is a copy of this repo, not a link to it.
 | --- | --- | --- | --- |
 | Composer module | `module.ts` at the root | `module.ts` at the root | none |
 | Service | `src/service.ts`, `appDir: '..'` | `service.ts` at the root, `appDir: "."` | none: both work, README documents the root layout |
-| Deploy workflow | `.github/workflows/prisma-deploy.yml` | none | add it to the gallery folder only (see below) |
+| Deploy workflow | `.github/workflows/prisma-deploy.yml` | the same file at the root (PR #3), Node from `.nvmrc` | none: it comes with the copy (see below) |
 | `bunfig.toml` | `linker = "hoisted"` | none | none: it only configures `bun install`; this repo installs with npm, whose `node_modules` is already hoisted |
 | Package manager | Bun (`bun.lock`, `packageManager: bun@1.3.14`) | npm (`package-lock.json`) | none: `cloud-deploy-action` runs `npm ci` when it finds `package-lock.json` |
 | Node in CI | 22.23.2 | 24 (`.nvmrc`); the CLI needs 22.18+ (`engines` of `prisma` and `@prisma/composer`; `alchemy` beta.78 needs 22.15+) | workflow below reads `.nvmrc`; 22.23.2 passes the version checks too, untested |
@@ -28,17 +28,22 @@ folder. So the submission is a copy of this repo, not a link to it.
 | `templates.json` `author` | no entry has one yet | | new field; shape to confirm with Prisma (draft below uses a string) |
 | Deploy Button limits | | 52 tracked files, screenshots ~100 KB each | within 100 files / 25 MB |
 
-### Why the workflow is not added to this repo's root
+### The workflow at this repo's root
+
+Added in PR #3 after all: every pushed branch deploys (`main` to
+production, any other branch to a preview stage of the same name), and that
+is how the first deploy happened. Two things follow:
 
 - The Deploy Button docs (`/docs/compute/deploy-button`) say "custom GitHub
   Actions workflows are not supported"; Prisma adds its own managed workflow
-  when it copies the repo. A root workflow risks breaking the README button.
-- At the root it would deploy production on every push to `main` once the
-  repo is connected (AGENTS.md: ask before production deploys).
-- Inside `prisma-examples/compute/room-booking-prisma-template/` it is inert (GitHub only runs
-  workflows from the repository root) and matches every other template, whose
-  `compute/README.md` says "Each example includes a Composer module and a
-  GitHub Actions deployment workflow."
+  when it copies the repo. **Untested:** whether the README button still
+  works with this workflow in the repo. Run it once before opening the PR.
+- Every push to `main` is a production deploy.
+
+Inside `prisma-examples/compute/room-booking-prisma-template/` it is inert
+(GitHub only runs workflows from the repository root) and matches every other
+template, whose `compute/README.md` says "Each example includes a Composer
+module and a GitHub Actions deployment workflow."
 
 ## Before opening the PR
 
@@ -90,8 +95,12 @@ folder. So the submission is a copy of this repo, not a link to it.
    - `tests/global-setup.ts` now runs `npx` through the shell
      (`execSync`): `execFileSync("npx")` fails on Windows with ENOENT. Not
      caused by the downgrade.
-3. **Open: not yet deployed once** (NOTES.md Step 8 pending). Reviewers will try the
-   "Use" flow; a successful deploy log is worth linking in the PR.
+3. **Deployed: done 2026-10-27.** The `prisma-deploy` workflow deployed `main`
+   to production (run 40496728593,
+   <https://github.com/mdobaid311/room-booking-prisma-template/actions/runs/40496728593>):
+   <https://bfc8q8vlw5rdrtz5643og0b1.ewr.prisma.build>. Details in NOTES.md
+   Step 8. Still open: the Deploy Button run above, since reviewers will try
+   the "Use" flow.
 
 ## The gallery folder: `compute/room-booking-prisma-template/`
 
@@ -102,7 +111,8 @@ Copy the repo's tracked files, except:
 
 Then, in the copy:
 
-- Add `.github/workflows/prisma-deploy.yml` (below).
+- `.github/workflows/prisma-deploy.yml` comes with the copy; optionally pin
+  the action versions as below.
 - `README.md`: point the Deploy button at the gallery
   (`https://console.prisma.io/apps/room-booking-prisma-template`), and in "Deploy on push"
   say the workflow is included instead of "it opens a pull request that adds
@@ -215,7 +225,8 @@ room-booking-prisma-template	Next.js room booking app: Resource Scheduler timeli
 > **Checked:** `npm run lint`, `npm run typecheck`, `npm test` (unit tests, and
 > with `TEST_DATABASE_URL` the PostgreSQL tests, including 25 simultaneous
 > bookings of one slot), `npm run build`, and `npm run dev:composer` on Bun.
-> Deployed with `npm run deploy`: <link to the deployed app>.
+> Deployed by the included `prisma-deploy` workflow:
+> <https://bfc8q8vlw5rdrtz5643og0b1.ewr.prisma.build>.
 >
 > `templates.json` gets a new `author` field, as the gallery page asks; happy
 > to change its shape.

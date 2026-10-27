@@ -491,7 +491,7 @@ failures, and the losers get a precise message instead of "try again".
 
 ---
 
-## Step 8: Deploy to Prisma Compute (pending: needs a human)
+## Step 8: Deploy to Prisma Compute
 
 - This cloud container cannot reach `api.prisma.io` or
   `console.prisma.io` (egress policy, `CONNECT tunnel failed, response
@@ -531,3 +531,21 @@ failures, and the losers get a precise message instead of "try again".
     rc.27 → rc.21, `@prisma/composer(-prisma-cloud)` 0.34.0 → 0.28.0,
     `@prisma/orm-postgres` rc.20 → rc.16 (Composer 0.28.0's peer pin),
     `alchemy` beta.83 → beta.78. Waiting on a decision.
+  - **Decided: downgrade** (`56de576`, PR #2), to the versions Prisma's
+    official templates pin: Composer 0.29.1, `prisma` 8.0.0-rc.22,
+    `@prisma/orm-postgres` 8.0.0-rc.17, `alchemy` 2.0.0-beta.78, plus
+    `effect` 4.0.0-rc.115 as a direct dependency. Details in
+    `docs/gallery-submission.md`.
+- **Deployed (2026-10-27)**, not with `npm run deploy` but by the
+  `prisma-deploy` workflow from PR #3 (`prisma/cloud-deploy-action@v1` with
+  GitHub OIDC, so no `prisma auth login`). Pushing `main` deploys
+  production; any other branch deploys a preview stage of the same name.
+  - First production deploy: run 40496728593 for `7680345`. The deploy
+    action took 76 s, of which `prisma deploy` 34.5 s. No errors.
+  - URL: <https://bfc8q8vlw5rdrtz5643og0b1.ewr.prisma.build> (region `ewr`).
+  - Demo data is there: the page reads 6 rooms and 12 bookings from Prisma
+    Postgres, query 13 ms. Full page loads from a laptop: 2.1 to 3.0 s.
+  - `staging`, `ci/prisma-deploy-workflow` and `docs/node-and-windows-notes`
+    deployed as preview stages the same way, all green.
+  - Not recorded yet: the cold start time and the boot log
+    (`npx prisma service logs app`).
