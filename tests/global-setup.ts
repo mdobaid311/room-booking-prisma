@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execSync } from "node:child_process";
 
 // Brings TEST_DATABASE_URL up to date with the committed migrations, the same
 // way a deploy does. Without TEST_DATABASE_URL the integration tests skip.
@@ -8,7 +8,8 @@ export default function setup() {
     console.warn("\nTEST_DATABASE_URL is not set: skipping the PostgreSQL integration tests. See the README.\n");
     return;
   }
-  execFileSync("npx", ["prisma", "db", "migrate", "--yes"], {
+  // Through the shell, so Windows finds npx.cmd.
+  execSync("npx prisma db migrate --yes", {
     env: { ...process.env, DATABASE_URL: url },
     stdio: "pipe",
   });

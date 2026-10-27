@@ -1,8 +1,8 @@
 // What this template is and how it works, below the booking board. Delete this
 // file and its use in page.tsx when the app is yours.
 
-export const SOURCE_URL = "https://github.com/mdobaid311/room-booking-prisma";
-export const DEPLOY_URL = `https://console.prisma.io/new/clone?repository-url=${encodeURIComponent(SOURCE_URL)}&project-name=room-booking`;
+export const SOURCE_URL = "https://github.com/mdobaid311/room-booking-prisma-template";
+export const DEPLOY_URL = `https://console.prisma.io/new/clone?repository-url=${encodeURIComponent(SOURCE_URL)}&project-name=room-booking-prisma-template`;
 
 const steps = [
   {

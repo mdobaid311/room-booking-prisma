@@ -59,7 +59,7 @@ async function insertDemoData(tx: Tx, now: Date) {
  */
 export async function seedIfEmpty(db: Db, now = new Date()): Promise<boolean> {
   return db.transaction(async (tx) => {
-    await tx.execute(tx.raw.sql`SELECT pg_advisory_xact_lock(${SEED_LOCK})`.affectedCount().build());
+    await tx.execute(db.raw.sql`SELECT pg_advisory_xact_lock(${SEED_LOCK})`.affectedCount().build());
     if (await tx.orm.public.Room.select("id").first()) return false;
     await insertDemoData(tx, now);
     return true;
@@ -69,7 +69,7 @@ export async function seedIfEmpty(db: Db, now = new Date()): Promise<boolean> {
 /** Deletes every booking and room, then inserts the demo data again. */
 export async function reseed(db: Db, now = new Date()): Promise<void> {
   await db.transaction(async (tx) => {
-    await tx.execute(tx.raw.sql`SELECT pg_advisory_xact_lock(${SEED_LOCK})`.affectedCount().build());
+    await tx.execute(db.raw.sql`SELECT pg_advisory_xact_lock(${SEED_LOCK})`.affectedCount().build());
     await tx.orm.public.Booking.where((b) => b.id.isNotNull()).deleteAndCount();
     await tx.orm.public.Room.where((r) => r.id.isNotNull()).deleteAndCount();
     await insertDemoData(tx, now);

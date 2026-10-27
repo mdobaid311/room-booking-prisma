@@ -8,7 +8,7 @@ production-ready starter built end to end on the Prisma platform:
 - **[Prisma Postgres](https://www.prisma.io/postgres)** for the data, with a database per deploy, preview and laptop.
 - **[Prisma Compute](https://www.prisma.io/compute)** to host it, declared with Prisma Composer.
 
-<a href="https://console.prisma.io/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fmdobaid311%2Fresource-scheduler-prisma-template&project-name=resource-scheduler-prisma-template&utm_source=github-readme"><img src="https://www.prisma.io/docs/img/deploy-button.svg" alt="Deploy with Prisma" width="172" height="36" /></a>
+<a href="https://console.prisma.io/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fmdobaid311%2Froom-booking-prisma-template&project-name=room-booking-prisma-template&utm_source=github-readme"><img src="https://www.prisma.io/docs/img/deploy-button.svg" alt="Deploy with Prisma" width="172" height="36" /></a>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png" />
@@ -90,7 +90,7 @@ The deploy creates a Prisma project named after the module in `module.ts`, provi
 - **Region:** the first deploy creates the project in `us-east-1`. To use another region, change `prismaCloud({ region })` in `prisma.config.ts` **before** the first deploy; it cannot change later.
 - **Previews:** `npm run build && npx prisma deploy module.ts --stage my-branch` deploys an isolated copy with its own empty database.
 - **Deploy on push:** connect the repository in the [Prisma Console](https://console.prisma.io); it opens a pull request that adds the deploy workflow, and every push then deploys (the default branch to production, other branches as previews).
-- **Logs and rollback:** `npx prisma project link resource-scheduler-prisma-template`, then `npx prisma service logs app` or `npx prisma service version rollback app --to <id> --confirm <id>`.
+- **Logs and rollback:** `npx prisma project link room-booking-prisma-template`, then `npx prisma service logs app` or `npx prisma service version rollback app --to <id> --confirm <id>`.
 
 There is no `prisma.compute.ts` or `compute:deploy` script. That was the Prisma Compute setup before Prisma Composer; it was removed in favour of `module.ts`, `service.ts` and the `composer` section of `prisma.config.ts`.
 

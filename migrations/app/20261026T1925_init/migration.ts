@@ -10,7 +10,6 @@ import {
   fn,
   primaryKey,
   rawSql,
-  sql,
 } from '@prisma/orm-postgres/migration';
 
 export default class M extends Migration<never, End> {
@@ -28,7 +27,7 @@ export default class M extends Migration<never, End> {
           col('booker', 'text', { notNull: true, codecRef: { codecId: 'pg/text@1' } }),
           col('createdAt', 'timestamptz', {
             notNull: true,
-            default: fn(sql`now()`),
+            default: fn('now()'),
             codecRef: { codecId: 'pg/timestamptz-date@1' },
           }),
           col('endsAt', 'timestamptz', {
@@ -45,7 +44,7 @@ export default class M extends Migration<never, End> {
         ],
         constraints: [
           primaryKey(['id']),
-          checkExpression('booking_ends_after_start_20c1ac54', sql`"endsAt" > "startsAt"`),
+          checkExpression('booking_ends_after_start_20c1ac54', '"endsAt" > "startsAt"'),
         ],
       }),
       this.createTable({
