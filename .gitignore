@@ -25,3 +25,8 @@ dist/
 .DS_Store
 *.pem
 npm-debug.log*
+
+# local AI assistant files
+.claude/
+CLAUDE.md
+CLAUDE.local.md
