@@ -49,14 +49,16 @@ The tests prove each layer separately, including a race where 25 requests book t
 
 ## Run it locally
 
-You need **Node.js 24.11.1 or newer** (Prisma Composer's local runner does not start on Node 22) and **[Bun](https://bun.sh)**, because Prisma Compute runs your app on Bun and so does its local emulator.
+You need **Node.js 24** (`.nvmrc`, the version this template is tested on; the Prisma CLI itself needs 22.18 or newer) and **[Bun](https://bun.sh)**, because Prisma Compute runs your app on Bun and so does its local emulator.
+
+The local emulator runs on macOS and Linux only: `prisma dev` stops on Windows with `local dev is not supported on Windows yet`. On Windows, run it in WSL or a Linux container, or use [hot reload with your own database](#with-hot-reload-and-your-own-database) below.
 
 ```bash
 npm install
 npm run dev:composer
 ```
 
-Open <http://localhost:3000>. This builds the app and runs it the way Prisma Compute does: on Bun, against a local Prisma Postgres database that gets the committed migrations, with no connection string and no account. Stop it with `npx prisma dev stop`.
+Open <http://localhost:3000>. This builds the app and runs it the way Prisma Compute does: on Bun, against a local Prisma Postgres database that gets the committed migrations, with no connection string and no account. It runs in the foreground; stop it with Ctrl+C.
 
 ### With hot reload and your own database
 
@@ -176,7 +178,8 @@ They apply the migrations, then check create, move and cancel, 25 simultaneous b
 
 ## Troubleshooting
 
-- **`alchemy: node 22.x is not supported. Upgrade to node 24.11.1 or newer.`** from `npm run dev:composer` or `npm run deploy`: switch to Node 24 (`nvm use`, the repository has an `.nvmrc`).
+- **`alchemy: node <version> is not supported (module.registerHooks needs node 22.15+, 23.5+, or 24+)`** from `npm run dev:composer` or `npm run deploy`: switch to Node 24 (`nvm use`, the repository has an `.nvmrc`).
+- **`local dev is not supported on Windows yet`** (`DEV.PLATFORM_UNSUPPORTED`) from `npm run dev:composer`: Prisma's local emulator does not run on Windows. Run it in WSL or a Linux container, or use `npm run dev` with a `DATABASE_URL`.
 - **The deployed URL answers 504:** `next.config.ts` must keep `output: "standalone"`.
 - **`HostedStateBootstrapError` on deploy:** a project with the module's name already exists in your workspace and was created from another checkout. Rename the module in `module.ts`, or deploy with `--name <unique-name>`.
 - **The integration tests are skipped:** set `TEST_DATABASE_URL` (see Tests).
