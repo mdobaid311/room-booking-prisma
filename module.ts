@@ -4,7 +4,7 @@ import { postgres } from "@prisma/composer-prisma-cloud/orm";
 import { appContract } from "./src/prisma/composer.ts";
 import app from "./service.ts";
 
-export default module("resource-scheduler-prisma-template", ({ provision }) => {
+export default module("room-booking-prisma-template", ({ provision }) => {
   const database = provision(
     postgres({
       name: "database",
