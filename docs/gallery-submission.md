@@ -1,4 +1,4 @@
-# Prisma app gallery submission (draft, do not commit)
+# Prisma app gallery submission (working notes)
 
 Working notes for submitting this template to <https://www.prisma.io/apps>.
 Compared with `prisma/prisma-examples` at branch `latest` on 2026-10-27:
@@ -19,8 +19,8 @@ folder. So the submission is a copy of this repo, not a link to it.
 | Deploy workflow | `.github/workflows/prisma-deploy.yml` | none | add it to the gallery folder only (see below) |
 | `bunfig.toml` | `linker = "hoisted"` | none | none: it only configures `bun install`; this repo installs with npm, whose `node_modules` is already hoisted |
 | Package manager | Bun (`bun.lock`, `packageManager: bun@1.3.14`) | npm (`package-lock.json`) | none: `cloud-deploy-action` runs `npm ci` when it finds `package-lock.json` |
-| Node in CI | 22.23.2 | 24.11.1+ required (`alchemy` beta.83 refuses Node 22) | workflow below reads `.nvmrc` |
-| Toolchain pins | exact (`@prisma/composer` 0.29.1, `prisma` rc.22, `@prisma/orm-postgres` rc.17, `alchemy` beta.78) | exact, but newer (0.34.0, rc.27, rc.20, beta.83, plus an `effect` 4.0.3 override) | **open: see "Blockers"** |
+| Node in CI | 22.23.2 | 24 (`.nvmrc`); the CLI needs 22.18+ (`engines` of `prisma` and `@prisma/composer`; `alchemy` beta.78 needs 22.15+) | workflow below reads `.nvmrc`; 22.23.2 passes the version checks too, untested |
+| Toolchain pins | exact (`@prisma/composer` 0.29.1, `prisma` rc.22, `@prisma/orm-postgres` rc.17, `alchemy` beta.78) | the same, plus `effect` 4.0.0-rc.115 as a direct dependency | done in `56de576` (PR #2) |
 | App dependency pins | all exact | `^` on `resource-scheduler`, `zod`, `temporal-polyfill` and dev tools | none: the lockfile pins them; optional to drop the `^` |
 | `.env.example` | `DATABASE_URL` only | `DATABASE_URL`, commented `TEST_DATABASE_URL`, `.env.local` advice | none |
 | `.gitignore`, `.gitattributes` | | covers everything the official ones do | none |
@@ -40,21 +40,22 @@ folder. So the submission is a copy of this repo, not a link to it.
   `compute/README.md` says "Each example includes a Composer module and a
   GitHub Actions deployment workflow."
 
-## Blockers to resolve before opening the PR
+## Before opening the PR
 
-1. **Repository not public yet.** Final name: `github.com/mdobaid311/room-booking-prisma-template`
-   (git remote, `src/app/about.tsx` and the README Deploy button all use it,
-   with `project-name=room-booking-prisma-template`). It returned 404 publicly on
-   2026-10-27; the Deploy Button needs a public repo. The module and package
-   are named `room-booking-prisma-template`, matching the gallery id.
-2. **Console setup refused the `effect` override** (NOTES.md, Step 8): it
+1. **Repository public: done.** `github.com/mdobaid311/room-booking-prisma-template`
+   answers publicly (checked 2026-10-27), as the Deploy Button needs. The git
+   remote, `src/app/about.tsx` and the README Deploy button all use it, with
+   `project-name=room-booking-prisma-template`. The module and package are
+   named `room-booking-prisma-template`, matching the gallery id.
+2. **Console setup refused the `effect` override: fixed** in `56de576`,
+   merged in PR #2. What happened (NOTES.md, Step 8): it
    expects Composer 0.28.0 with `effect` 4.0.0-rc.115, this repo has Composer
    0.34.0 with `effect` 4.0.3. The gallery's "Use" flow likely runs the same
    setup. The official templates pin Composer 0.29.1, `prisma` 8.0.0-rc.22,
    `@prisma/orm-postgres` 8.0.0-rc.17 and `alchemy` 2.0.0-beta.78 with no
    override; aligning with those is the likely fix (then re-check Node 22 vs
    24, since the managed workflow uses Node 22.23.2).
-   **Tried 2026-10-27 (uncommitted):** installs fine, but needs `effect`
+   **Done 2026-10-27:** installs fine, but needs `effect`
    4.0.0-rc.115 as a direct dependency (npm otherwise hoists 4.0.6 and every
    CLI command fails with `Cannot find module .../effect/dist/unstable/http/FetchHttpClient.js`;
    Prisma's own `bun.lock` resolves rc.115 the same way). Then CLI, migration
@@ -81,12 +82,15 @@ folder. So the submission is a copy of this repo, not a link to it.
      a fresh database, the app runs on Bun (`bun bootstrap.js`), the first
      visit seeds (200 in 1.2 s, then 0.1 s), 15 demo bookings, and 10
      parallel POSTs for one slot give 1 × 201 and 9 × 409 with the
-     "already booked" message. Still to re-check on Linux: README's
-     `npx prisma dev stop` and AGENTS.md's "refuse Node 22".
+     "already booked" message. Checked afterwards against the installed
+     CLI: rc.22 has no `prisma dev stop` (it runs in the foreground, Ctrl+C
+     stops it), and the Node floor is 22.18, so README and AGENTS.md no
+     longer say Node 22 is refused and now say Windows needs WSL or a Linux
+     container.
    - `tests/global-setup.ts` now runs `npx` through the shell
      (`execSync`): `execFileSync("npx")` fails on Windows with ENOENT. Not
      caused by the downgrade.
-3. **Not yet deployed once** (NOTES.md Step 8 pending). Reviewers will try the
+3. **Open: not yet deployed once** (NOTES.md Step 8 pending). Reviewers will try the
    "Use" flow; a successful deploy log is worth linking in the PR.
 
 ## The gallery folder: `compute/room-booking-prisma-template/`
