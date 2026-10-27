@@ -511,3 +511,23 @@ failures, and the losers get a precise message instead of "try again".
   any error text, whether the first visit seeds the demo data, the cold
   start time, and the boot log (`npx prisma project link
   resource-scheduler-prisma-template`, `npx prisma service logs app`).
+- **Setup refused the repo's `effect` override (2026-10-27).** The setup
+  step reported: "This repository declares `effect` 4.0.3 in its overrides.
+  Composer 0.28.0 depends on exactly 4.0.0-rc.115, and setup never changes a
+  version your repository declares, so the install would mix two `effect`
+  versions. Set `effect` to 4.0.0-rc.115 and try again."
+  - The override came from `create-prisma` 0.14.4 itself, which scaffolds
+    Composer **0.34.0** (2026-10-23); 0.34.0 pins `effect` to exactly 4.0.3.
+    The setup step wants Composer **0.28.0** (2026-10-07), which pins
+    4.0.0-rc.115. So Prisma's newest scaffold and its setup step disagree.
+  - Following the message literally (all `effect`/`@effect/*` overrides to
+    4.0.0-rc.115, keeping Composer 0.34.0) installs one `effect`, but every
+    Prisma CLI command then fails:
+    `✘ [CLI.CONFIG_UNREADABLE] .../prisma.config.ts could not be evaluated:
+    Cannot find module '.../node_modules/effect/dist/http/FetchHttpClient.js'`.
+    Lint, typecheck and `next build` still pass, so only the CLI notices.
+    Not committed; reverted.
+  - A consistent rc.115 stack means downgrading together: `prisma` CLI
+    rc.27 → rc.21, `@prisma/composer(-prisma-cloud)` 0.34.0 → 0.28.0,
+    `@prisma/orm-postgres` rc.20 → rc.16 (Composer 0.28.0's peer pin),
+    `alchemy` beta.83 → beta.78. Waiting on a decision.
