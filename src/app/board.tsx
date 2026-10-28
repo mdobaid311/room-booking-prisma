@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { ResourceScheduler, ViewType } from "resource-scheduler";
 import type { Placement, ResourceInput, SchedulerEvent, VisibleRange } from "resource-scheduler";
 import "resource-scheduler/style.css";
@@ -21,13 +22,12 @@ type Booking = {
   roomId: string;
   startsAt: Date;
   endsAt: Date;
-  /** Shown but not saved yet: drawn grey, and cannot be moved until the server answers. */
+  /** Shown but not saved yet: drawn dashed, and cannot be moved until the server answers. */
   pending: boolean;
 };
 
 type Notice = { kind: "success" | "error"; text: string };
 
-const PENDING_COLOR = "var(--pending)";
 const FLOOR_COLORS = 4; // --floor-1 to --floor-4 in globals.css, reused when there are more floors
 const rules = bookingRules();
 
@@ -104,7 +104,7 @@ export function Board({
       resourceId: b.roomId,
       startDate: b.startsAt,
       endDate: b.endsAt,
-      color: b.pending ? PENDING_COLOR : floorColor(floorOf.get(b.roomId) ?? ""),
+      color: floorColor(floorOf.get(b.roomId) ?? ""),
     }));
   }, [bookings, rooms, floorColor]);
 
@@ -225,8 +225,8 @@ export function Board({
       <div className="board-head">
         <h2>Timeline</h2>
         <p className="muted">
-          Drag across free time to book. Drag a booking to move it, drag its edge to resize it, click it to cancel.
-          Times are {OFFICE_TIME_ZONE} time.
+          Drag across free time to book. Drag a booking to move or resize it, click it to cancel. {OFFICE_TIME_ZONE}{" "}
+          time.
         </p>
         {loading && (
           <span className="loading" role="status">
@@ -257,8 +257,10 @@ export function Board({
           slotDuration={SLOT_MINUTES}
           dayStartHour={OPEN_HOUR}
           dayEndHour={CLOSE_HOUR}
+          resourceColumnWidth="180px"
+          timeColumnWidth="110px"
+          classNames={{ slot: "slot" }}
           nowIndicator
-          showUtilization
           businessHours={{ daysOfWeek: [0, 1, 2, 3, 4, 5, 6], startHour: OPEN_HOUR, endHour: CLOSE_HOUR }}
           ariaLabel="Meeting room bookings"
           labels={{ resources: "Rooms" }}
@@ -268,6 +270,26 @@ export function Board({
           onEventDrop={(event, _fromRoom, toRoom, startsAt, endsAt) => reschedule(event.id, toRoom, startsAt, endsAt)}
           onEventResize={(event, roomId, startsAt, endsAt) => reschedule(event.id, roomId, startsAt, endsAt)}
           onRangeChange={onRangeChange}
+          // The scheduler's wrapper around this keeps the keyboard, focus ring, popover and resize handles.
+          // Times come from the booking: the event's dates are shifted into the scheduler's time zone.
+          renderTimeSlot={(event) => {
+            const booking = bookings.find((b) => b.id === event.id);
+            return (
+              <div
+                className="booking"
+                data-pending={booking?.pending || undefined}
+                style={{ "--booking": event.color } as CSSProperties}
+                title={event.title}
+              >
+                <span className="booking-title">{event.title}</span>
+                {booking && (
+                  <span className="booking-time">
+                    {formatOfficeTime(booking.startsAt)} – {formatOfficeTime(booking.endsAt)}
+                  </span>
+                )}
+              </div>
+            );
+          }}
           renderEventPopover={(event, resource, close) => {
             const booking = bookings.find((b) => b.id === event.id);
             return (

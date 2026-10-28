@@ -1,11 +1,14 @@
 import type { Metadata, Viewport } from "next";
-import { Barlow, Barlow_Semi_Condensed } from "next/font/google";
+import { Barlow_Semi_Condensed, Inter } from "next/font/google";
 
 import "./globals.css";
 
-// Barlow is drawn after road and wayfinding signs, which is what a room board is.
-const text = Barlow({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-text" });
+// Inter for the interface, which is mostly small text and times. Barlow is
+// drawn after road and wayfinding signs, so it names the rooms and the page.
+const text = Inter({ subsets: ["latin"], variable: "--font-text" });
 const display = Barlow_Semi_Condensed({ subsets: ["latin"], weight: ["600", "700"], variable: "--font-display" });
+
+const themeScript = `try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}`;
 
 export const metadata: Metadata = {
   title: "Rooms: meeting room booking on Prisma",
@@ -16,14 +19,19 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#f2f4f7" },
-    { media: "(prefers-color-scheme: dark)", color: "#0d121b" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0b0d" },
   ],
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    // data-theme="system": the scheduler follows the OS light or dark setting, like the page.
-    <html lang="en" data-theme="system" className={`${text.variable} ${display.variable}`}>
+    // data-theme="system": the page and the scheduler follow the OS light or dark
+    // setting, until the theme button picks one. The script applies that choice
+    // before the first paint, so React is told the attribute may differ.
+    <html lang="en" data-theme="system" className={`${text.variable} ${display.variable}`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body>{children}</body>
     </html>
   );
