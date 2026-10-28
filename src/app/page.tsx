@@ -6,19 +6,17 @@ import { CLOSE_HOUR, OPEN_HOUR, officeTime } from "@/lib/office";
 import { db, ensureSeeded } from "@/prisma/db";
 import { listBookings } from "@/server/bookings";
 
-import { About, DEPLOY_URL, SOURCE_URL } from "./about";
 import { Board } from "./board";
 
 export const dynamic = "force-dynamic"; // read the database per request, not at build time
 
-/** The rooms and one day's bookings, and how long Prisma Postgres took to answer, for the page to show. */
+/** The rooms and one day's bookings. */
 async function readDay(day: number, now: Date) {
-  const started = performance.now();
   const [rooms, bookings] = await Promise.all([
     db.orm.public.Room.orderBy([(r) => r.floor.asc(), (r) => r.name.asc()]).all(),
     listBookings(db, officeTime(day, 0, 0, now), officeTime(day + 1, 0, 0, now)),
   ]);
-  return { rooms, bookings, queryMs: Math.round(performance.now() - started) };
+  return { rooms, bookings };
 }
 
 export default async function Page() {
@@ -29,7 +27,7 @@ export default async function Page() {
   const day = now >= officeTime(0, CLOSE_HOUR, 0, now) ? 1 : 0;
   const initialDate = day === 0 ? now : officeTime(day, OPEN_HOUR, 0, now);
 
-  const { rooms, bookings, queryMs } = await readDay(day, now);
+  const { rooms, bookings } = await readDay(day, now);
 
   return (
     <div className="shell">
@@ -42,17 +40,6 @@ export default async function Page() {
           </svg>
           Rooms
         </Link>
-        <nav className="topbar-nav" aria-label="About this template">
-          <a className="topbar-link" href="#how">
-            How it works
-          </a>
-          <a className="topbar-link" href={SOURCE_URL}>
-            Source
-          </a>
-          <a className="button primary" href={DEPLOY_URL}>
-            Deploy your own
-          </a>
-        </nav>
       </header>
 
       <main>
@@ -67,16 +54,7 @@ export default async function Page() {
           initialDate={initialDate.toISOString()}
           serverNow={now.toISOString()}
         />
-
-        <About rooms={rooms.length} bookings={bookings.length} queryMs={queryMs} />
       </main>
-
-      <footer className="footer">
-        <p>
-          Open source under the MIT license. Made by <a href="https://github.com/mdobaid311">Mohammed Obaid</a> with
-          Prisma ORM, Prisma Postgres and Prisma Compute.
-        </p>
-      </footer>
     </div>
   );
 }

@@ -78,7 +78,7 @@ export function RoomStatus({
               </p>
               {status.state === "busy" && <p className="plate-title">{status.title}</p>}
               {status.state === "free" && status.slot && (
-                <button type="button" className="button small plate-book" onClick={() => onBook(room, status.slot!)}>
+                <button type="button" className="button primary small plate-book" onClick={() => onBook(room, status.slot!)}>
                   Book now<span className="sr-only"> {room.name}</span>
                 </button>
               )}
