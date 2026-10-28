@@ -66,7 +66,13 @@ export default async function Page() {
         <ul className="stack-grid">
           {stack.map((item) => (
             <li key={item.name}>
-              <a href={item.href}>{item.name}</a>
+              <div className="stack-head">
+                <span className="stack-logo">{item.logo}</span>
+                <a href={item.href}>{item.name}</a>
+                <span className="stack-arrow" aria-hidden="true">
+                  ↗
+                </span>
+              </div>
               <p>{item.what}</p>
             </li>
           ))}
