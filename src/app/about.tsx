@@ -22,7 +22,12 @@ const steps = [
   },
 ];
 
-const stack = [
+export const stack = [
+  {
+    name: "Next.js 16",
+    what: "App Router. The page reads the rooms and the day's bookings on the server; the timeline runs in the browser.",
+    href: "https://nextjs.org",
+  },
   {
     name: "Prisma ORM 8",
     what: "Typed queries and migrations from one schema contract. Every booking change runs in a transaction.",

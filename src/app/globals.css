@@ -1,61 +1,48 @@
 /* Page styles. The scheduler brings its own scoped stylesheet
    (resource-scheduler/style.css) and is themed below with its --rs-* variables. */
 
+/* Every color is light-dark(light, dark). The OS setting picks one, unless the
+   theme button set data-theme="light" or "dark" on <html>. Dark mode uses
+   near-neutral greys, borders of white at low opacity, and depth from lighter
+   surfaces with a highlight on their top edge rather than from shadows. */
 :root {
   color-scheme: light dark;
-  --paper: #f2f4f7;
-  --surface: #ffffff;
-  --raised: #f8fafc;
-  --ink: #172033;
-  --muted: #5a6476;
-  --line: #dde2ea;
-  --line-strong: #c6cdd8;
+  --paper: light-dark(#f2f4f7, #0a0b0d);
+  --surface: light-dark(#ffffff, #111316);
+  --raised: light-dark(#f8fafc, #181b20);
+  --ink: light-dark(#172033, #ececf1);
+  --muted: light-dark(#5a6476, #9ba1ad);
+  --line: light-dark(#dde2ea, rgb(255 255 255 / 0.08));
+  --line-strong: light-dark(#c6cdd8, rgb(255 255 255 / 0.14));
   /* The timeline's lines: hours, and the fainter half hours. */
-  --grid-line: rgb(16 24 40 / 0.08);
-  --grid-line-faint: rgb(16 24 40 / 0.04);
-  --action: #172033;
-  --action-fg: #ffffff;
-  --link: #4338ca;
-  --free: #11804f;
-  --busy: #c2410c;
-  --danger: #c0262d;
-  --mark: #172033;
+  --grid-line: light-dark(rgb(16 24 40 / 0.08), rgb(255 255 255 / 0.06));
+  --grid-line-faint: light-dark(rgb(16 24 40 / 0.04), rgb(255 255 255 / 0.03));
+  --action: light-dark(#172033, #ececf1);
+  --action-fg: light-dark(#ffffff, #0a0b0d);
+  --link: light-dark(#4338ca, #a9a3ff);
+  --free: light-dark(#11804f, #3ccf8e);
+  --busy: light-dark(#c2410c, #fb8c4c);
+  --danger: light-dark(#c0262d, #ff7a7f);
+  --mark: light-dark(#172033, #1d2026);
   /* One color per floor, for its plates and bookings. None of them is --link,
      which marks what you select. */
-  --floor-1: #0b8783;
-  --floor-2: #2563eb;
-  --floor-3: #b86200;
-  --floor-4: #b4237f;
+  --floor-1: light-dark(#0b8783, #2cc4bd);
+  --floor-2: light-dark(#2563eb, #60a5fa);
+  --floor-3: light-dark(#b86200, #f0a63a);
+  --floor-4: light-dark(#b4237f, #ee6bbd);
   --radius: 10px;
-  --shadow: 0 1px 2px rgb(16 24 40 / 0.05), 0 12px 32px -16px rgb(16 24 40 / 0.18);
+  --shadow:
+    inset 0 1px 0 light-dark(transparent, rgb(255 255 255 / 0.04)),
+    0 1px 2px light-dark(rgb(16 24 40 / 0.05), transparent),
+    0 12px 32px -16px light-dark(rgb(16 24 40 / 0.18), rgb(0 0 0 / 0.7));
 }
 
-/* Near-neutral greys, borders of white at low opacity, and depth from lighter
-   surfaces with a highlight on their top edge rather than from shadows. */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --paper: #0a0b0d;
-    --surface: #111316;
-    --raised: #181b20;
-    --ink: #ececf1;
-    --muted: #9ba1ad;
-    --line: rgb(255 255 255 / 0.08);
-    --line-strong: rgb(255 255 255 / 0.14);
-    --grid-line: rgb(255 255 255 / 0.06);
-    --grid-line-faint: rgb(255 255 255 / 0.03);
-    --action: #ececf1;
-    --action-fg: #0a0b0d;
-    --link: #a9a3ff;
-    --free: #3ccf8e;
-    --busy: #fb8c4c;
-    --danger: #ff7a7f;
-    --mark: #1d2026;
-    --floor-1: #2cc4bd;
-    --floor-2: #60a5fa;
-    --floor-3: #f0a63a;
-    --floor-4: #ee6bbd;
-    --shadow: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 12px 32px -16px rgb(0 0 0 / 0.7);
-  }
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 /* The scheduler, in the page's colors. :root[data-theme] outranks the
@@ -570,6 +557,16 @@ code {
   color: var(--danger);
 }
 
+.button.icon {
+  width: 2.25rem;
+  padding: 0;
+  color: var(--muted);
+}
+
+.button.icon:hover {
+  color: var(--ink);
+}
+
 .button.small {
   min-height: 2rem;
   padding: 0.25rem 0.75rem;
@@ -827,6 +824,50 @@ code {
 
 .footer p {
   margin: 0;
+}
+
+.footer h2 {
+  margin-bottom: 1rem;
+  font-family: var(--font-text), sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* The stack, one short card per part. */
+.stack-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stack-grid li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 1rem 1.125rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.stack-grid a {
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.stack-grid a:hover {
+  color: var(--link);
+}
+
+.stack-grid p {
+  font-size: 0.8125rem;
+  line-height: 1.45;
 }
 
 @media (max-width: 40rem) {

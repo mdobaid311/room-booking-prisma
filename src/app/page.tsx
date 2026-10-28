@@ -6,7 +6,9 @@ import { CLOSE_HOUR, OPEN_HOUR, officeTime } from "@/lib/office";
 import { db, ensureDemoDay, ensureSeeded } from "@/prisma/db";
 import { listBookings } from "@/server/bookings";
 
+import { stack } from "./about";
 import { Board } from "./board";
+import { ThemeToggle } from "./theme-toggle";
 
 export const dynamic = "force-dynamic"; // read the database per request, not at build time
 
@@ -42,6 +44,7 @@ export default async function Page() {
           </svg>
           Rooms
         </Link>
+        <ThemeToggle />
       </header>
 
       <main>
@@ -57,6 +60,18 @@ export default async function Page() {
           serverNow={now.toISOString()}
         />
       </main>
+
+      <footer className="footer" aria-labelledby="stack-heading">
+        <h2 id="stack-heading">Built with</h2>
+        <ul className="stack-grid">
+          {stack.map((item) => (
+            <li key={item.name}>
+              <a href={item.href}>{item.name}</a>
+              <p>{item.what}</p>
+            </li>
+          ))}
+        </ul>
+      </footer>
     </div>
   );
 }
