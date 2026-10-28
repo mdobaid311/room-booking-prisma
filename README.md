@@ -25,7 +25,7 @@ production-ready starter built end to end on the Prisma platform:
 - A taken slot, a time outside opening hours, or one that has already started turns red before you drop (`eventOverlap`, `isValidDrop`), so most mistakes never reach the server.
 - The server checks again inside a transaction, with the same rules, so two people booking the same slot at the same moment cannot both win. The loser's change rolls back on screen with a message that says what is in the way.
 - Times are shown and checked on the office's clock (`Europe/Berlin` by default), whatever zone the visitor or the server is in.
-- An empty database gets six demo rooms and a day of bookings on the first visit.
+- An empty database gets six demo rooms and a day of bookings on the first visit. After that, a day the board opens on with no bookings at all gets the same day of demo bookings, so the demo never shows an empty timeline; a day with any booking is left alone.
 
 ## How double booking is prevented
 
@@ -136,7 +136,7 @@ next.config.ts               output: "standalone", which Prisma Compute runs
 migrations/                  planned migrations, applied by every deploy (init adds the exclusion constraint)
 src/
   app/
-    page.tsx                 server component: rooms and the day's bookings, seeds an empty database
+    page.tsx                 server component: rooms and the day's bookings, seeds an empty database or day
     board.tsx                client component: <ResourceScheduler>, optimistic updates and rollback
     booking-dialog.tsx       the booking form opened by onSlotSelect
     api/bookings/route.ts    GET (a date range) and POST
@@ -169,7 +169,7 @@ docker run -d --name rooms-test -p 5433:5432 -e POSTGRES_PASSWORD=postgres postg
 TEST_DATABASE_URL="postgresql://postgres:postgres@localhost:5433/postgres" npm test
 ```
 
-They apply the migrations, then check create, move and cancel, 25 simultaneous bookings of one slot (exactly one wins), a create and a move racing, bookings swapping rooms without deadlocks, the room lock alone (constraint dropped), the constraint alone, and concurrent seeding.
+They apply the migrations, then check create, move and cancel, 25 simultaneous bookings of one slot (exactly one wins), a create and a move racing, bookings swapping rooms without deadlocks, the room lock alone (constraint dropped), the constraint alone, and concurrent seeding of the database and of an empty day.
 
 ## Make it yours
 

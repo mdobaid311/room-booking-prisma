@@ -3,7 +3,7 @@ import Link from "next/link";
 import { toBookingDTO } from "@/lib/api-types";
 import type { RoomDTO } from "@/lib/api-types";
 import { CLOSE_HOUR, OPEN_HOUR, officeTime } from "@/lib/office";
-import { db, ensureSeeded } from "@/prisma/db";
+import { db, ensureDemoDay, ensureSeeded } from "@/prisma/db";
 import { listBookings } from "@/server/bookings";
 
 import { Board } from "./board";
@@ -26,6 +26,8 @@ export default async function Page() {
   const now = new Date();
   const day = now >= officeTime(0, CLOSE_HOUR, 0, now) ? 1 : 0;
   const initialDate = day === 0 ? now : officeTime(day, OPEN_HOUR, 0, now);
+
+  await ensureDemoDay(day, now); // and the day on screen gets the demo bookings if it has none
 
   const { rooms, bookings } = await readDay(day, now);
 

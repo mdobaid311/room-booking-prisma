@@ -5,7 +5,8 @@ import "temporal-polyfill/global";
 import service from "../../service.ts";
 import type { Contract } from "./contract.d.ts";
 import contractJson from "./contract.json" with { type: "json" };
-import { seedIfEmpty } from "./seed.ts";
+import { officeTime } from "../lib/office.ts";
+import { seedDayIfEmpty, seedIfEmpty } from "./seed.ts";
 
 // On Prisma Compute, and under `prisma dev module.ts`, Composer hands the
 // service a client for the database declared in module.ts. Under plain
@@ -37,4 +38,22 @@ export function ensureSeeded(): Promise<boolean> {
     throw error;
   });
   return seeding;
+}
+
+let toppedUp: { day: string; done: Promise<boolean> } | undefined;
+
+/**
+ * Gives office day `day` (0 = today) the demo bookings if it has none, so a
+ * demo board never opens on an empty day. Checks once per day in this process.
+ */
+export function ensureDemoDay(day: number, now = new Date()): Promise<boolean> {
+  const key = officeTime(day, 0, 0, now).toISOString();
+  if (toppedUp?.day !== key) {
+    const done = seedDayIfEmpty(db, day, now).catch((error: unknown) => {
+      toppedUp = undefined; // try again on the next request
+      throw error;
+    });
+    toppedUp = { day: key, done };
+  }
+  return toppedUp.done;
 }
