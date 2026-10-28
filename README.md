@@ -78,21 +78,26 @@ Use `.env.local`, not `.env`: `next build` copies `.env` into the bundle that a 
 
 ## Deploy to Prisma Compute
 
-The quickest way is the **Deploy with Prisma** button above: it copies this repository to your GitHub account and deploys it, with its own database.
+The **Deploy with Prisma** button above copies this repository to your GitHub account and deploys the copy with its own database. If the copy's first `prisma-deploy` run is green but deploys nothing, see [Troubleshooting](#troubleshooting).
 
-From your machine:
+To deploy your own clone, connect it to a Prisma project once, then push. The included `prisma-deploy` workflow (`.github/workflows/prisma-deploy.yml`) deploys every push: the default branch to production, any other branch to a preview named after it.
 
 ```bash
-npx prisma auth login          # once; opens the browser
-npm run deploy                 # next build, then prisma deploy module.ts
+npx prisma auth login                                  # once; opens the browser
+npm run deploy                                         # first deploy: creates the project
+npx prisma project link room-booking-prisma-template   # point this folder at that project
+npx prisma git connect                                 # connect this repository (its origin remote)
+git push                                               # from now on, GitHub Actions deploys
 ```
 
-The deploy creates a Prisma project named after the module in `module.ts`, provisions a Prisma Postgres database, applies the migrations in `migrations/`, deploys the app and prints its URL. The first visit seeds the demo data. Run `npm run deploy` again to ship a change; it applies only what changed.
+`git connect` installs the Prisma GitHub App on the repository if needed, and needs an interactive terminal. Importing the repository in the [Prisma Console](https://console.prisma.io) instead creates the project and connects it in one step.
+
+A deploy creates the Prisma project (named after the module in `module.ts`) if it does not exist, provisions a Prisma Postgres database, applies the migrations in `migrations/`, deploys the app and prints its URL; on GitHub, the URL is in the workflow run's log. The first visit seeds the demo data. Later deploys apply only what changed.
 
 - **Region:** the first deploy creates the project in `us-east-1`. To use another region, change `prismaCloud({ region })` in `prisma.config.ts` **before** the first deploy; it cannot change later.
-- **Previews:** `npm run build && npx prisma deploy module.ts --stage my-branch` deploys an isolated copy with its own empty database.
-- **Deploy on push:** connect the repository in the [Prisma Console](https://console.prisma.io); it opens a pull request that adds the deploy workflow, and every push then deploys (the default branch to production, other branches as previews).
-- **Logs and rollback:** `npx prisma project link room-booking-prisma-template`, then `npx prisma service logs app` or `npx prisma service version rollback app --to <id> --confirm <id>`.
+- **Previews:** push a branch to get an isolated copy with its own empty database; deleting the branch removes it. Without GitHub: `npm run build && npx prisma deploy module.ts --stage my-branch`.
+- **Without a push:** `npm run deploy` ships the current checkout to production from your machine.
+- **Logs and rollback:** `npx prisma service logs app` or `npx prisma service version rollback app --to <id> --confirm <id>`, from a folder linked with `npx prisma project link room-booking-prisma-template`.
 
 There is no `prisma.compute.ts` or `compute:deploy` script. That was the Prisma Compute setup before Prisma Composer; it was removed in favour of `module.ts`, `service.ts` and the `composer` section of `prisma.config.ts`.
 
@@ -102,7 +107,7 @@ There is no `prisma.compute.ts` or `compute:deploy` script. That was the Prisma 
 | --- | --- | --- |
 | `DATABASE_URL` | `.env.local`, local only | The database for `npm run dev`, `npm run db:*`. Not used on Prisma Compute, where the app gets its database from Composer (`service.load()`). |
 | `TEST_DATABASE_URL` | shell or `.env.local` | A disposable PostgreSQL database for the integration tests. |
-| `PRISMA_SERVICE_TOKEN`, `PRISMA_WORKSPACE_ID` | CI only | To run `prisma deploy` from a CI system other than the Console's GitHub workflow. |
+| `PRISMA_SERVICE_TOKEN`, `PRISMA_WORKSPACE_ID` | CI secrets only | To run `prisma deploy` in CI without a connected repository: another CI system, or the `prisma-deploy` workflow before the repository is connected (see Troubleshooting). |
 
 **Host and port:** the app needs no settings. Prisma Compute sets `PORT`, and the Next.js standalone server it runs listens on `PORT` and on `HOSTNAME`, which defaults to `0.0.0.0` (all interfaces), as Compute requires. Do not add `HOSTNAME` or `HOST` to the project's environment variables: a server bound to `localhost` deploys fine but cannot be reached.
 
@@ -180,6 +185,18 @@ They apply the migrations, then check create, move and cancel, 25 simultaneous b
 
 - **`alchemy: node <version> is not supported (module.registerHooks needs node 22.15+, 23.5+, or 24+)`** from `npm run dev:composer` or `npm run deploy`: switch to Node 24 (`nvm use`, the repository has an `.nvmrc`).
 - **`local dev is not supported on Windows yet`** (`DEV.PLATFORM_UNSUPPORTED`) from `npm run dev:composer`: Prisma's local emulator does not run on Windows. Run it in WSL or a Linux container, or use `npm run dev` with a `DATABASE_URL`.
+- **The `prisma-deploy` run is green but nothing deployed** (its log shows `skipped-no-credential` and "This repository is not connected to a Prisma workspace"): the repository is not connected to a Prisma project, so the workflow gets no credential. Copies made with the Deploy button currently end up like this. Connect the repository as in [Deploy to Prisma Compute](#deploy-to-prisma-compute) and push again, or deploy with a service token: create one in the Prisma Console, add it and the workspace ID (from the workspace settings) as the Actions secrets `PRISMA_SERVICE_TOKEN` and `PRISMA_WORKSPACE_ID`, pass them to the deploy step in `.github/workflows/prisma-deploy.yml`, and push:
+
+  ```yaml
+        - uses: prisma/cloud-deploy-action@v1
+          with:
+            build-command: npm run build
+          env:
+            PRISMA_SERVICE_TOKEN: ${{ secrets.PRISMA_SERVICE_TOKEN }}
+            PRISMA_WORKSPACE_ID: ${{ secrets.PRISMA_WORKSPACE_ID }}
+  ```
+
+  The token can deploy anything in the workspace, so keep it in secrets only. Once that deploy has created the project, `npx prisma project link room-booking-prisma-template` and `npx prisma git connect` switch the workflow to deploys without a token; then remove the `env:` lines and the two secrets.
 - **The deployed URL answers 504:** `next.config.ts` must keep `output: "standalone"`.
 - **`HostedStateBootstrapError` on deploy:** a project with the module's name already exists in your workspace and was created from another checkout. Rename the module in `module.ts`, or deploy with `--name <unique-name>`.
 - **The integration tests are skipped:** set `TEST_DATABASE_URL` (see Tests).
