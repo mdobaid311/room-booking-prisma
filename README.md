@@ -107,7 +107,7 @@ There is no `prisma.compute.ts` or `compute:deploy` script. That was the Prisma 
 | --- | --- | --- |
 | `DATABASE_URL` | `.env.local`, local only | The database for `npm run dev`, `npm run db:*`. Not used on Prisma Compute, where the app gets its database from Composer (`service.load()`). |
 | `TEST_DATABASE_URL` | shell or `.env.local` | A disposable PostgreSQL database for the integration tests. |
-| `PRISMA_SERVICE_TOKEN`, `PRISMA_WORKSPACE_ID` | CI secrets only | To run `prisma deploy` in CI without a connected repository: another CI system, or the `prisma-deploy` workflow before the repository is connected (see Troubleshooting). |
+| `PRISMA_SERVICE_TOKEN` | CI secrets only | To run `prisma deploy` in CI without a connected repository: another CI system, or the `prisma-deploy` workflow before the repository is connected (see Troubleshooting). Add `PRISMA_WORKSPACE_ID` only when the token can see more than one workspace. |
 
 **Host and port:** the app needs no settings. Prisma Compute sets `PORT`, and the Next.js standalone server it runs listens on `PORT` and on `HOSTNAME`, which defaults to `0.0.0.0` (all interfaces), as Compute requires. Do not add `HOSTNAME` or `HOST` to the project's environment variables: a server bound to `localhost` deploys fine but cannot be reached.
 
@@ -185,7 +185,7 @@ They apply the migrations, then check create, move and cancel, 25 simultaneous b
 
 - **`alchemy: node <version> is not supported (module.registerHooks needs node 22.15+, 23.5+, or 24+)`** from `npm run dev:composer` or `npm run deploy`: switch to Node 24 (`nvm use`, the repository has an `.nvmrc`).
 - **`local dev is not supported on Windows yet`** (`DEV.PLATFORM_UNSUPPORTED`) from `npm run dev:composer`: Prisma's local emulator does not run on Windows. Run it in WSL or a Linux container, or use `npm run dev` with a `DATABASE_URL`.
-- **The `prisma-deploy` run is green but nothing deployed** (its log shows `skipped-no-credential` and "This repository is not connected to a Prisma workspace"): the repository is not connected to a Prisma project, so the workflow gets no credential. Copies made with the Deploy button currently end up like this. Connect the repository as in [Deploy to Prisma Compute](#deploy-to-prisma-compute) and push again, or deploy with a service token: create one in the Prisma Console, add it and the workspace ID (from the workspace settings) as the Actions secrets `PRISMA_SERVICE_TOKEN` and `PRISMA_WORKSPACE_ID`, pass them to the deploy step in `.github/workflows/prisma-deploy.yml`, and push:
+- **The `prisma-deploy` run is green but nothing deployed** (its log shows `skipped-no-credential` and "This repository is not connected to a Prisma workspace"): the repository is not connected to a Prisma project, so the workflow gets no credential. Copies made with the Deploy button currently end up like this. Connect the repository as in [Deploy to Prisma Compute](#deploy-to-prisma-compute) and push again, or deploy with a service token: create one in the Prisma Console, add it as the Actions secret `PRISMA_SERVICE_TOKEN`, pass it to the deploy step in `.github/workflows/prisma-deploy.yml` (the secret alone is not enough: a re-run without the `env:` lines still skips), and push:
 
   ```yaml
         - uses: prisma/cloud-deploy-action@v1
@@ -193,10 +193,9 @@ They apply the migrations, then check create, move and cancel, 25 simultaneous b
             build-command: npm run build
           env:
             PRISMA_SERVICE_TOKEN: ${{ secrets.PRISMA_SERVICE_TOKEN }}
-            PRISMA_WORKSPACE_ID: ${{ secrets.PRISMA_WORKSPACE_ID }}
   ```
 
-  The token can deploy anything in the workspace, so keep it in secrets only. Once that deploy has created the project, `npx prisma project link room-booking-prisma-template` and `npx prisma git connect` switch the workflow to deploys without a token; then remove the `env:` lines and the two secrets.
+  The token can deploy anything in the workspace, so keep it in secrets only. Once that deploy has created the project, `npx prisma project link room-booking-prisma-template` and `npx prisma git connect` switch the workflow to deploys without a token; then remove the `env:` lines and the secret.
 - **The deployed URL answers 504:** `next.config.ts` must keep `output: "standalone"`.
 - **`HostedStateBootstrapError` on deploy:** a project with the module's name already exists in your workspace and was created from another checkout. Rename the module in `module.ts`, or deploy with `--name <unique-name>`.
 - **The integration tests are skipped:** set `TEST_DATABASE_URL` (see Tests).
