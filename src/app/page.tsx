@@ -1,14 +1,11 @@
-import Link from "next/link";
-
 import { toBookingDTO } from "@/lib/api-types";
 import type { RoomDTO } from "@/lib/api-types";
 import { CLOSE_HOUR, OPEN_HOUR, officeTime } from "@/lib/office";
 import { db, ensureDemoDay, ensureSeeded } from "@/prisma/db";
 import { listBookings } from "@/server/bookings";
 
-import { SOURCE_URL, stack } from "./about";
+import { stack } from "./about";
 import { Board } from "./board";
-import { ThemeToggle } from "./theme-toggle";
 
 export const dynamic = "force-dynamic"; // read the database per request, not at build time
 
@@ -34,43 +31,29 @@ export default async function Page() {
   const { rooms, bookings } = await readDay(day, now);
 
   return (
-    <>
-      <header className="topbar">
-        <Link className="brand" href="/">
-          <svg className="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
-            <rect width="32" height="32" rx="8" fill="var(--fg)" />
-            <rect x="7" y="9" width="12" height="5" rx="1.5" fill="var(--bg)" />
-            <rect x="13" y="18" width="12" height="5" rx="1.5" fill="var(--bg)" />
-          </svg>
-          Rooms
-        </Link>
-        <div className="topbar-end">
-          <a href={SOURCE_URL}>Source</a>
-          <ThemeToggle />
-        </div>
-      </header>
-
-      <Board
-        rooms={rooms.map(({ id, name, floor, seats }): RoomDTO => ({ id, name, floor, seats }))}
-        initialBookings={bookings.map(toBookingDTO)}
-        initialDate={initialDate.toISOString()}
-        serverNow={now.toISOString()}
-      />
-
-      <footer className="footer" aria-labelledby="stack-heading">
+    <Board
+      rooms={rooms.map(({ id, name, floor, seats }): RoomDTO => ({ id, name, floor, seats }))}
+      initialBookings={bookings.map(toBookingDTO)}
+      initialDate={initialDate.toISOString()}
+      serverNow={now.toISOString()}
+    >
+      <footer className="stack-section" aria-labelledby="stack-heading">
         <h2 id="stack-heading">Built with</h2>
         <ul className="stack">
           {stack.map((item) => (
-            <li key={item.name}>
-              <a href={item.href}>
+            <li key={item.name} className="card">
+              <div className="card-top">
                 <span className="stack-logo">{item.logo}</span>
-                {item.name}
-              </a>
+                <div className="card-title">
+                  <a href={item.href}>{item.name}</a>
+                  <span className="tag">{item.kind}</span>
+                </div>
+              </div>
               <p>{item.what}</p>
             </li>
           ))}
         </ul>
       </footer>
-    </>
+    </Board>
   );
 }

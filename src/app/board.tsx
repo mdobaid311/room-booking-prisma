@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import type { ReactNode } from "react";
 import { ResourceScheduler, ViewType } from "resource-scheduler";
 import type {
   Placement,
@@ -25,10 +27,12 @@ import {
 } from "@/lib/office";
 import { bookingRules } from "@/lib/rules";
 
+import { SOURCE_URL } from "./about";
 import { BookingDialog, rememberBooker, rememberedBooker } from "./booking-dialog";
 import type { BookingDetails, BookingDraft } from "./booking-dialog";
 import { FindTime } from "./find-time";
 import { RoomLabel } from "./room-status";
+import { ThemeToggle } from "./theme-toggle";
 
 type Booking = {
   id: string;
@@ -60,6 +64,32 @@ const messageOf = (error: unknown) =>
 const isGone = (error: unknown) => error instanceof ApiRequestError && error.code === "not_found";
 const isConflict = (error: unknown) => error instanceof ApiRequestError && error.code === "conflict";
 
+/** Line icons on a 24-pixel grid, drawn in the text color. */
+const icon = (paths: ReactNode) => (
+  <svg
+    viewBox="0 0 24 24"
+    width="16"
+    height="16"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    {paths}
+  </svg>
+);
+const clockIcon = icon(
+  <>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v5l3 2" />
+  </>,
+);
+const downloadIcon = icon(<path d="M12 4v11m-4-4 4 4 4-4M5 20h14" />);
+const printIcon = icon(<path d="M7 9V4h10v5M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M7 14h10v6H7z" />);
+const codeIcon = icon(<path d="m16 18 6-6-6-6M8 6l-6 6 6 6" />);
+
 /** Saves an iCalendar file, which Google Calendar, Outlook and Apple Calendar open. */
 function saveCalendar(fileName: string, ics: string) {
   const link = document.createElement("a");
@@ -69,21 +99,24 @@ function saveCalendar(fileName: string, ics: string) {
 }
 
 /**
- * The calendar, with "Find a time" beside it. Every change is optimistic: it
- * shows at once, is sent to the API, and is rolled back with the server's
- * message if the server refuses.
+ * The app's window: the calendar, with "Find a time" beside it. Every change
+ * is optimistic: it shows at once, is sent to the API, and is rolled back with
+ * the server's message if the server refuses.
  */
 export function Board({
   rooms,
   initialBookings,
   initialDate,
   serverNow,
+  children,
 }: {
   rooms: RoomDTO[];
   initialBookings: BookingDTO[];
   initialDate: string;
   /** The server's clock at render, so the first paint of the room statuses matches on both sides. */
   serverNow: string;
+  /** Shown below the timeline. */
+  children?: ReactNode;
 }) {
   const [bookings, setBookings] = useState(() => initialBookings.map(fromDTO));
   const [start] = useState(() => new Date(initialDate));
@@ -257,8 +290,23 @@ export function Board({
   }
 
   return (
-    <main className="workspace">
-      <div className="board-head">
+    <div className="app">
+      <Link className="brand" href="/">
+        <svg className="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+          <defs>
+            <linearGradient id="brand-fill" x2="1" y2="1">
+              <stop offset="0" stopColor="#7c3aed" />
+              <stop offset="1" stopColor="#a855f7" />
+            </linearGradient>
+          </defs>
+          <rect width="32" height="32" rx="9" fill="url(#brand-fill)" />
+          <rect x="7" y="9" width="12" height="5" rx="1.5" fill="#fff" />
+          <rect x="13" y="18" width="12" height="5" rx="1.5" fill="#fff" />
+        </svg>
+        Rooms
+      </Link>
+
+      <header className="head">
         <div>
           <h1>Book a meeting room</h1>
           <p>
@@ -267,19 +315,23 @@ export function Board({
               : "Drag across free time to book. Drag a booking to move it, or an edge to change its time."}
           </p>
         </div>
-        <div className="board-actions">
+        <div className="head-tools">
           {/* Intl output can differ by a space between the server's runtime and the browser. */}
           <span className="clock" suppressHydrationWarning>
+            {clockIcon}
             {formatOfficeDay(now)}, {formatOfficeTime(now)} in {city}
           </span>
-          <button type="button" className="button small" onClick={exportShown}>
+          <button type="button" className="button" onClick={exportShown}>
+            {downloadIcon}
             Export .ics
           </button>
-          <button type="button" className="button small" onClick={() => window.print()}>
+          <button type="button" className="button" onClick={() => window.print()}>
+            {printIcon}
             Print
           </button>
+          <ThemeToggle />
         </div>
-      </div>
+      </header>
 
       <aside className="sidebar" aria-label="Find a time">
         <FindTime
@@ -289,9 +341,13 @@ export function Board({
           now={now}
           onPick={(room, slot) => setDraft({ resourceId: room.id, start: slot.start, end: slot.end, roomName: room.name })}
         />
+        <a className="side-link" href={SOURCE_URL}>
+          {codeIcon}
+          Source code
+        </a>
       </aside>
 
-      <div className="board-main">
+      <main className="main">
         <div className="board-frame">
           <ResourceScheduler
             ref={scheduler}
@@ -401,7 +457,9 @@ export function Board({
           </ul>
           {loading ? <span role="status">Loading…</span> : <span>Times are {OFFICE_TIME_ZONE} time.</span>}
         </div>
-      </div>
+
+        {children}
+      </main>
 
       <div className="toast-region" aria-live="polite">
         {notice && (
@@ -422,6 +480,6 @@ export function Board({
           onCancel={() => setDraft(null)}
         />
       )}
-    </main>
+    </div>
   );
 }

@@ -1,6 +1,10 @@
 import type { Metadata, Viewport } from "next";
+import { DM_Sans } from "next/font/google";
 
 import "./globals.css";
+
+// One calm, geometric family for everything; tabular figures line the times up.
+const sans = DM_Sans({ subsets: ["latin"], variable: "--font-sans" });
 
 const themeScript = `try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}`;
 
@@ -12,8 +16,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#121212" },
+    { media: "(prefers-color-scheme: light)", color: "#e3eaf7" },
+    { media: "(prefers-color-scheme: dark)", color: "#090b27" },
   ],
 };
 
@@ -22,7 +26,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     // data-theme="system": the page and the scheduler follow the OS light or dark
     // setting, until the theme button picks one. The script applies that choice
     // before the first paint, so React is told the attribute may differ.
-    <html lang="en" data-theme="system" suppressHydrationWarning>
+    <html lang="en" data-theme="system" className={sans.variable} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>

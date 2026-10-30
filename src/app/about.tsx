@@ -1,5 +1,6 @@
-// What this template is built with, in the footer. Delete this file and its use
-// in page.tsx when the app is yours.
+// What this template is built with, in the cards below the timeline, and where
+// its source lives. Delete the cards in page.tsx and the source link in
+// board.tsx when the app is yours.
 
 export const SOURCE_URL = "https://github.com/mdobaid311/room-booking-prisma-template";
 
@@ -36,30 +37,35 @@ const schedulerLogo = (
 export const stack = [
   {
     name: "Next.js 16",
+    kind: "Framework",
     what: "App Router. The page reads the rooms and the day's bookings on the server; the timeline runs in the browser.",
     href: "https://nextjs.org",
     logo: nextLogo,
   },
   {
     name: "Prisma ORM 8",
+    kind: "ORM",
     what: "Typed queries and migrations from one schema contract. Every booking change runs in a transaction.",
     href: "https://www.prisma.io/orm",
     logo: prismaLogo,
   },
   {
     name: "Prisma Postgres",
+    kind: "Database",
     what: "Stores the rooms and bookings. Every deploy, preview and laptop gets a database of its own.",
     href: "https://www.prisma.io/postgres",
     logo: prismaLogo,
   },
   {
     name: "Prisma Compute",
+    kind: "Hosting",
     what: "Runs the Next.js server. module.ts declares the app and its database, and a deploy provisions both.",
     href: "https://www.prisma.io/compute",
     logo: prismaLogo,
   },
   {
     name: "Resource Scheduler",
+    kind: "Timeline",
     what: "The timeline: drag to book, move and resize, day and week views, utilization, free-slot search and calendar files.",
     href: "https://resource-scheduler-docs.vercel.app",
     logo: schedulerLogo,
