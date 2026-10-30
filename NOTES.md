@@ -549,3 +549,118 @@ failures, and the losers get a precise message instead of "try again".
     deployed as preview stages the same way, all green.
   - Not recorded yet: the cold start time and the boot log
     (`npx prisma service logs app`).
+
+---
+
+## Step 9: The Deploy Button ("Use") flow (2026-10-28 to 2026-10-30)
+
+What a gallery reviewer does: click "Deploy with Prisma" in the README
+(`console.prisma.io/new/clone?repository-url=…&project-name=…`), pick the
+workspace, GitHub account, repository name and visibility, then "Authorize
+GitHub and deploy". The Console copies the repo into the person's GitHub
+account, creates a Prisma project named after the repository, and replaces
+`.github/workflows/prisma-deploy.yml` with its managed version (the same
+`prisma/cloud-deploy-action@v1` step, plus `module: module.ts`). The push of
+the copy starts the first deploy.
+
+The agent drove the Console and GitHub in the person's Chrome. Creating the
+service token and adding the Actions secret were done by hand.
+
+### The copies never deployed (2026-10-28)
+
+- Two copies (`room-booking-prisma-template-1` and `-2`), private
+  repositories, Personal workspace. One attempt stopped at "A project with
+  this name already exists in this workspace" (`project_name_taken`); a new
+  repository name fixed it.
+- Every run was green in about 15 s, and nothing was deployed. The action's
+  log:
+
+  ```
+  Notice: The action cannot deploy without a credential. This repository is not connected to a Prisma workspace. Connect it in the Prisma Console, or set PRISMA_SERVICE_TOKEN as an Actions secret.
+  Nothing to do: the main step recorded a final outcome (skipped-no-credential).
+  ```
+
+  Runs: 40658893221 (first run of `-1`), 40659927617 (its manual re-run),
+  40661186146 (first run of `-2`).
+- The Console meanwhile showed "Repository connected", "Deploy workflow
+  started" and "Deploying…", and stayed there.
+- Not specific to this template: a copy of Prisma's own `personal-site`
+  template (2026-10-27, run 40541901631) ended the same way. The original
+  repository, connected in Step 8, kept deploying with the same action.
+
+### Why (from the `prisma/cloud-deploy-action` README)
+
+- The action picks a credential in this order: a `PRISMA_SERVICE_TOKEN`
+  environment variable; otherwise the GitHub OIDC token (`id-token: write`),
+  exchanged at `api.prisma.io`, which matches the repository's numeric id
+  against the workspace's GitHub connection and returns a 30-minute
+  workspace token.
+- With neither, it prints the notice above, records `skipped-no-credential`
+  and exits green. That is by design (forks have no credential and should
+  not fail), but here it hid a broken setup: green run, "Deploying…" in the
+  Console, no app. An outage of the exchange fails the run instead.
+- So the copy was never registered with the workspace connection, and the
+  exchange refused it. Prisma's reply later confirmed it: the copied
+  repositories "weren't fully connected to a Prisma project".
+
+### Workaround: a service token (2026-10-29)
+
+- Reported to Prisma on 2026-10-28 with run ids and screenshots. The first
+  reply suggested `PRISMA_SERVICE_TOKEN` as an Actions secret.
+- Adding the secret and re-running still skipped, for two reasons:
+  - GitHub exposes a secret to a step only when the workflow passes it
+    (`env:`), and the managed workflow does not. The action's notice ("set
+    PRISMA_SERVICE_TOKEN as an Actions secret") is true but not enough.
+  - A re-run uses the workflow file of the original commit, so a workflow
+    edit needs a new push.
+- What worked: create a service token in the Console, add it as the Actions
+  secret, pass it to the deploy step, push:
+
+  ```yaml
+        - uses: prisma/cloud-deploy-action@v1
+          with:
+            module: module.ts
+            build-command: npm run build
+          env:
+            PRISMA_SERVICE_TOKEN: ${{ secrets.PRISMA_SERVICE_TOKEN }}
+  ```
+
+  Run 40939760393 deployed `-2` to
+  <https://vxnuvsn6yacjvjbee2lin43l.ewr.prisma.build> with the six demo
+  rooms. `PRISMA_WORKSPACE_ID` was not needed (the token sees one
+  workspace). The README Troubleshooting section documents it (PR #7).
+- The cost: four manual steps after "Use", and a token with full workspace
+  access sitting in a repository secret.
+
+### Prisma's fix (2026-10-30)
+
+- Two days after the report, Prisma merged a fix: copies are now fully
+  connected, and existing copies recover with "Re-run all jobs", without
+  recreating the repository or adding a token. Their reply also mentions
+  regression tests for both cases.
+- Re-test:
+  - New copy (`-3`, private): repository created 09:55:06 UTC, first run
+    41036971083 started on the push and succeeded, endpoint up at
+    09:57:41, about 2.5 min after the click. No token.
+    <https://lje5urkao4v308d2ml39xhdf.ewr.prisma.build> shows the six rooms
+    and the demo bookings, and the Console lists the project as "Live".
+  - `-1`, re-run (run 40659927617, third attempt): succeeded, `prisma
+    deploy` 33 s, <https://q5gx71jpx5e98tu2el4pivxx.ewr.prisma.build>.
+  - `personal-site`, re-run: succeeded,
+    <https://o4td9x9ae7m1jt9p1mauwpar.ewr.prisma.build>.
+- Visible side effect: the Console's Service Tokens page now lists one
+  token per repository that deployed since the fix ("GitHub Actions
+  mdobaid311/<repo>", single project, expiring the same day), so the fix
+  appears to issue short-lived project tokens per repository.
+
+### For the post
+
+- What didn't work: a deploy that skips with a green check, next to a
+  Console status that says "Deploying…", is the worst combination: nothing
+  tells the person the app does not exist. A red run would have been found
+  in minutes.
+- What didn't work: the notice's advice (add the secret) fails silently
+  with the managed workflow, because the secret never reaches the step.
+- What worked: Prisma's response. Reported 2026-10-28, a workaround in the
+  first reply, a fix merged 2026-10-30, and existing copies recovered with
+  one click.

@@ -36,8 +36,9 @@ is how the first deploy happened. Two things follow:
 
 - The Deploy Button docs (`/docs/compute/deploy-button`) say "custom GitHub
   Actions workflows are not supported"; Prisma adds its own managed workflow
-  when it copies the repo. **Untested:** whether the README button still
-  works with this workflow in the repo. Run it once before opening the PR.
+  when it copies the repo. **Tested 2026-10-30:** the copy gets Prisma's
+  managed `prisma-deploy.yml` in place of this one (the same action, plus
+  `module: module.ts`) and deploys on its first run (NOTES.md, Step 9).
 - Every push to `main` is a production deploy.
 
 Inside `prisma-examples/compute/room-booking-prisma-template/` it is inert
@@ -99,8 +100,11 @@ module and a GitHub Actions deployment workflow."
    to production (run 40496728593,
    <https://github.com/mdobaid311/room-booking-prisma-template/actions/runs/40496728593>):
    <https://bfc8q8vlw5rdrtz5643og0b1.ewr.prisma.build>. Details in NOTES.md
-   Step 8. Still open: the Deploy Button run above, since reviewers will try
-   the "Use" flow.
+   Step 8.
+4. **Deploy Button: done 2026-10-30.** After Prisma's fix, a fresh copy made
+   with the README button deployed on its first run, with no service token
+   (NOTES.md, Step 9). The gallery's own "Use" link
+   (`console.prisma.io/apps/<id>`) can only be tried once the PR merges.
 
 ## The gallery folder: `compute/room-booking-prisma-template/`
 
