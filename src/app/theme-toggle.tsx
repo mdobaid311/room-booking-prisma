@@ -3,7 +3,9 @@
 /**
  * Switches between light and dark, starting from whichever is showing, and
  * remembers the choice in this browser. The script in layout.tsx applies it
- * before the first paint.
+ * before the first paint. The switch is a view transition: the browser
+ * cross-fades the whole page at once, so the page and the scheduler, which
+ * have color transitions of their own, change together instead of one by one.
  */
 export function ThemeToggle() {
   function toggle() {
@@ -11,9 +13,17 @@ export function ThemeToggle() {
     const dark =
       root.dataset.theme === "dark" ||
       (root.dataset.theme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
-    root.dataset.theme = dark ? "light" : "dark";
+    const theme = dark ? "light" : "dark";
+    const apply = () => {
+      root.dataset.theme = theme;
+    };
+    if (document.startViewTransition && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      document.startViewTransition(apply);
+    } else {
+      apply();
+    }
     try {
-      localStorage.setItem("theme", root.dataset.theme);
+      localStorage.setItem("theme", theme);
     } catch {
       // Storage blocked: the choice lasts until the page reloads.
     }

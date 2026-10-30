@@ -6,7 +6,7 @@ import { CLOSE_HOUR, OPEN_HOUR, officeTime } from "@/lib/office";
 import { db, ensureDemoDay, ensureSeeded } from "@/prisma/db";
 import { listBookings } from "@/server/bookings";
 
-import { stack } from "./about";
+import { SOURCE_URL, stack } from "./about";
 import { Board } from "./board";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -34,50 +34,43 @@ export default async function Page() {
   const { rooms, bookings } = await readDay(day, now);
 
   return (
-    <div className="shell">
+    <>
       <header className="topbar">
         <Link className="brand" href="/">
           <svg className="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
-            <rect width="32" height="32" rx="8" fill="var(--mark)" />
-            <rect x="7" y="8" width="18" height="6" rx="2" fill="var(--floor-1)" />
-            <rect x="7" y="18" width="18" height="6" rx="2" fill="var(--floor-2)" />
+            <rect width="32" height="32" rx="8" fill="var(--fg)" />
+            <rect x="7" y="9" width="12" height="5" rx="1.5" fill="var(--bg)" />
+            <rect x="13" y="18" width="12" height="5" rx="1.5" fill="var(--bg)" />
           </svg>
           Rooms
         </Link>
-        <ThemeToggle />
+        <div className="topbar-end">
+          <a href={SOURCE_URL}>Source</a>
+          <ThemeToggle />
+        </div>
       </header>
 
-      <main>
-        <div className="intro">
-          <h1>Book a meeting room</h1>
-          <p>Take a free room for the next half hour, or drag across the timeline to book any time.</p>
-        </div>
-
-        <Board
-          rooms={rooms.map(({ id, name, floor, seats }): RoomDTO => ({ id, name, floor, seats }))}
-          initialBookings={bookings.map(toBookingDTO)}
-          initialDate={initialDate.toISOString()}
-          serverNow={now.toISOString()}
-        />
-      </main>
+      <Board
+        rooms={rooms.map(({ id, name, floor, seats }): RoomDTO => ({ id, name, floor, seats }))}
+        initialBookings={bookings.map(toBookingDTO)}
+        initialDate={initialDate.toISOString()}
+        serverNow={now.toISOString()}
+      />
 
       <footer className="footer" aria-labelledby="stack-heading">
         <h2 id="stack-heading">Built with</h2>
-        <ul className="stack-grid">
+        <ul className="stack">
           {stack.map((item) => (
             <li key={item.name}>
-              <div className="stack-head">
+              <a href={item.href}>
                 <span className="stack-logo">{item.logo}</span>
-                <a href={item.href}>{item.name}</a>
-                <span className="stack-arrow" aria-hidden="true">
-                  ↗
-                </span>
-              </div>
+                {item.name}
+              </a>
               <p>{item.what}</p>
             </li>
           ))}
         </ul>
       </footer>
-    </div>
+    </>
   );
 }

@@ -1,19 +1,34 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { ResourceScheduler, ViewType } from "resource-scheduler";
-import type { Placement, ResourceInput, SchedulerEvent, VisibleRange } from "resource-scheduler";
+import type {
+  Placement,
+  ResourceInput,
+  ResourceSchedulerHandle,
+  SchedulerEvent,
+  VisibleRange,
+} from "resource-scheduler";
+import { eventsToICS } from "resource-scheduler/exchange";
 import "resource-scheduler/style.css";
 
 import { ApiRequestError, api } from "@/lib/api-client";
 import type { BookingDTO, RoomDTO } from "@/lib/api-types";
-import { CLOSE_HOUR, OFFICE_TIME_ZONE, OPEN_HOUR, SLOT_MINUTES, formatOfficeTime } from "@/lib/office";
+import {
+  CLOSE_HOUR,
+  OFFICE_TIME_ZONE,
+  OPEN_HOUR,
+  SLOT_MINUTES,
+  formatOfficeDay,
+  formatOfficeTime,
+  officeTime,
+} from "@/lib/office";
 import { bookingRules } from "@/lib/rules";
 
-import { BookingDialog, rememberBooker } from "./booking-dialog";
+import { BookingDialog, rememberBooker, rememberedBooker } from "./booking-dialog";
 import type { BookingDetails, BookingDraft } from "./booking-dialog";
-import { RoomStatus } from "./room-status";
+import { FindTime } from "./find-time";
+import { RoomLabel } from "./room-status";
 
 type Booking = {
   id: string;
@@ -28,8 +43,9 @@ type Booking = {
 
 type Notice = { kind: "success" | "error"; text: string };
 
-const FLOOR_COLORS = 4; // --floor-1 to --floor-4 in globals.css, reused when there are more floors
 const rules = bookingRules();
+const city = OFFICE_TIME_ZONE.split("/").pop()!.replaceAll("_", " ");
+const noSubscription = () => () => {};
 
 const fromDTO = (b: BookingDTO): Booking => ({
   ...b,
@@ -44,9 +60,18 @@ const messageOf = (error: unknown) =>
 const isGone = (error: unknown) => error instanceof ApiRequestError && error.code === "not_found";
 const isConflict = (error: unknown) => error instanceof ApiRequestError && error.code === "conflict";
 
+/** Saves an iCalendar file, which Google Calendar, Outlook and Apple Calendar open. */
+function saveCalendar(fileName: string, ics: string) {
+  const link = document.createElement("a");
+  link.href = `data:text/calendar;charset=utf-8,${encodeURIComponent(ics)}`;
+  link.download = fileName;
+  link.click();
+}
+
 /**
- * The calendar. Every change is optimistic: it shows at once, is sent to the
- * API, and is rolled back with the server's message if the server refuses.
+ * The calendar, with "Find a time" beside it. Every change is optimistic: it
+ * shows at once, is sent to the API, and is rolled back with the server's
+ * message if the server refuses.
  */
 export function Board({
   rooms,
@@ -57,19 +82,29 @@ export function Board({
   rooms: RoomDTO[];
   initialBookings: BookingDTO[];
   initialDate: string;
-  /** The server's clock at render, so the first paint of the room plates matches on both sides. */
+  /** The server's clock at render, so the first paint of the room statuses matches on both sides. */
   serverNow: string;
 }) {
   const [bookings, setBookings] = useState(() => initialBookings.map(fromDTO));
   const [start] = useState(() => new Date(initialDate));
   const [now, setNow] = useState(() => new Date(serverNow));
+  const [view, setView] = useState<ViewType>(ViewType.Day);
+  // What the grid shows: the day the page opened on, until the scheduler reports its range.
+  const [range, setRange] = useState<VisibleRange>(() => ({
+    start: officeTime(0, 0, 0, start),
+    end: officeTime(1, 0, 0, start),
+  }));
   const [draft, setDraft] = useState<BookingDraft | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [loading, setLoading] = useState(false);
-  const visibleRange = useRef<VisibleRange | null>(null);
+  const scheduler = useRef<ResourceSchedulerHandle>(null);
+  const reported = useRef(false);
   const loadController = useRef<AbortController | null>(null);
+  // Bookings under the name this browser booked with last are drawn as yours.
+  // The server has no localStorage, so it renders none as yours.
+  const me = useSyncExternalStore(noSubscription, rememberedBooker, () => "");
 
-  // The room plates say "free" or "in use" on the minute.
+  // The room statuses say "free" or "in use" on the minute.
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 15_000);
     return () => clearInterval(timer);
@@ -82,31 +117,34 @@ export function Board({
     return () => clearTimeout(timer);
   }, [notice]);
 
-  const roomName = (id: string) => rooms.find((r) => r.id === id)?.name ?? "the room";
+  // Open the day at the current time, or at opening time when the page opened on tomorrow.
+  useEffect(() => {
+    scheduler.current?.scrollToTime(start);
+  }, [start]);
 
-  // Every floor gets a color, like the signs in an office building, on its plates and its bookings.
-  const floorColor = useMemo(() => {
-    const floors = [...new Set(rooms.map((r) => r.floor))];
-    return (floor: string) => `var(--floor-${(floors.indexOf(floor) % FLOOR_COLORS) + 1})`;
-  }, [rooms]);
+  const roomById = useMemo(() => new Map(rooms.map((r) => [r.id, r])), [rooms]);
+  const roomName = (id: string) => roomById.get(id)?.name ?? "the room";
 
   const resources = useMemo<ResourceInput[]>(
     () => rooms.map((r) => ({ id: r.id, name: r.name, role: `${r.seats} seats`, group: r.floor })),
     [rooms],
   );
 
-  const events = useMemo<SchedulerEvent[]>(() => {
-    const floorOf = new Map(rooms.map((r) => [r.id, r.floor]));
-    return bookings.map((b) => ({
-      id: b.id,
-      title: b.title,
-      description: `Booked by ${b.booker}`,
-      resourceId: b.roomId,
-      startDate: b.startsAt,
-      endDate: b.endsAt,
-      color: floorColor(floorOf.get(b.roomId) ?? ""),
-    }));
-  }, [bookings, rooms, floorColor]);
+  const events = useMemo<SchedulerEvent[]>(
+    () =>
+      bookings.map((b) => ({
+        id: b.id,
+        title: b.title,
+        description: `Booked by ${b.booker}`,
+        resourceId: b.roomId,
+        startDate: b.startsAt,
+        endDate: b.endsAt,
+      })),
+    [bookings],
+  );
+
+  // A room's status is about now, so it shows only while today is on screen.
+  const todayOnScreen = range.start < officeTime(1, 0, 0, now) && range.end > officeTime(0, 0, 0, now);
 
   // The shared rules, plus one that only matters in the browser: a booking
   // that is still being saved cannot be moved yet.
@@ -200,39 +238,169 @@ export function Board({
     }
   }
 
-  /** The grid moved to another day: load it. The first day came with the page. */
-  function onRangeChange(range: VisibleRange) {
-    const first = visibleRange.current === null;
-    visibleRange.current = range;
-    if (!first) void fetchRange(range);
+  /** The grid moved to another day or week: load it. The first day came with the page. */
+  function onRangeChange(next: VisibleRange) {
+    setRange(next);
+    if (reported.current) void fetchRange(next);
+    reported.current = true;
   }
 
-  /** Reloads the day on screen, after a conflict showed it is out of date. */
+  /** Reloads the days on screen, after a conflict showed they are out of date. */
   async function refresh() {
-    if (visibleRange.current) await fetchRange(visibleRange.current);
+    await fetchRange(range);
+  }
+
+  /** Every booking on screen, as one calendar file. */
+  function exportShown() {
+    const shown = events.filter((e) => e.startDate < range.end && e.endDate > range.start);
+    saveCalendar("room-bookings.ics", eventsToICS(shown, { resources, name: "Meeting rooms" }));
   }
 
   return (
-    <>
-      <RoomStatus
-        rooms={rooms}
-        bookings={bookings}
-        now={now}
-        floorColor={floorColor}
-        onBook={(room, slot) => setDraft({ resourceId: room.id, ...slot, roomName: room.name })}
-      />
-
+    <main className="workspace">
       <div className="board-head">
-        <h2>Timeline</h2>
-        <p className="muted">
-          Drag across free time to book. Drag a booking to move or resize it, click it to cancel. {OFFICE_TIME_ZONE}{" "}
-          time.
-        </p>
-        {loading && (
-          <span className="loading" role="status">
-            Loading…
+        <div>
+          <h1>Book a meeting room</h1>
+          <p>
+            {view === ViewType.Week
+              ? "Drag a booking to another day to move it. Switch to Day to book a new time."
+              : "Drag across free time to book. Drag a booking to move it, or an edge to change its time."}
+          </p>
+        </div>
+        <div className="board-actions">
+          {/* Intl output can differ by a space between the server's runtime and the browser. */}
+          <span className="clock" suppressHydrationWarning>
+            {formatOfficeDay(now)}, {formatOfficeTime(now)} in {city}
           </span>
-        )}
+          <button type="button" className="button small" onClick={exportShown}>
+            Export .ics
+          </button>
+          <button type="button" className="button small" onClick={() => window.print()}>
+            Print
+          </button>
+        </div>
+      </div>
+
+      <aside className="sidebar" aria-label="Find a time">
+        <FindTime
+          rooms={rooms}
+          bookings={bookings}
+          range={range}
+          now={now}
+          onPick={(room, slot) => setDraft({ resourceId: room.id, start: slot.start, end: slot.end, roomName: room.name })}
+        />
+      </aside>
+
+      <div className="board-main">
+        <div className="board-frame">
+          <ResourceScheduler
+            ref={scheduler}
+            resources={resources}
+            events={events}
+            timeZone={OFFICE_TIME_ZONE}
+            initialDate={start}
+            initialView={ViewType.Day}
+            availableViews={[ViewType.Day, ViewType.Week]}
+            onViewChange={setView}
+            weekStartsOn={1}
+            slotDuration={SLOT_MINUTES}
+            dayStartHour={OPEN_HOUR}
+            dayEndHour={CLOSE_HOUR}
+            // A week has a lane for every booking of a day: compact lanes keep the rows short.
+            density={view === ViewType.Week ? "compact" : "comfortable"}
+            resourceColumnWidth="220px"
+            timeColumnWidth="64px"
+            dateColumnWidth="120px"
+            classNames={{ slot: "slot" }}
+            nowIndicator
+            businessHours={{ daysOfWeek: [0, 1, 2, 3, 4, 5, 6], startHour: OPEN_HOUR, endHour: CLOSE_HOUR }}
+            showUtilization
+            showColumnUtilization
+            ariaLabel="Meeting room bookings"
+            labels={{ resources: "Rooms" }}
+            eventOverlap={rules.eventOverlap}
+            isValidDrop={isValidDrop}
+            onSlotSelect={(slot) => setDraft({ ...slot, roomName: roomName(slot.resourceId) })}
+            onEventDrop={(event, _fromRoom, toRoom, startsAt, endsAt) => reschedule(event.id, toRoom, startsAt, endsAt)}
+            onEventResize={(event, roomId, startsAt, endsAt) => reschedule(event.id, roomId, startsAt, endsAt)}
+            onRangeChange={onRangeChange}
+            renderResourceHeader={(resource) => (
+              <RoomLabel room={roomById.get(resource.id)!} bookings={bookings} now={todayOnScreen ? now : null} />
+            )}
+            // The scheduler's wrapper around this keeps the keyboard, focus ring, popover and resize handles.
+            // Times come from the booking: the event's dates are shifted into the scheduler's time zone.
+            renderTimeSlot={(event) => {
+              const booking = bookings.find((b) => b.id === event.id);
+              return (
+                <div
+                  className="booking"
+                  data-mine={booking?.booker === me || undefined}
+                  data-pending={booking?.pending || undefined}
+                  title={event.title}
+                >
+                  <span className="booking-title">{event.title}</span>
+                  {booking && (
+                    <span className="booking-time">
+                      {formatOfficeTime(booking.startsAt)} – {formatOfficeTime(booking.endsAt)}
+                    </span>
+                  )}
+                </div>
+              );
+            }}
+            renderEventPopover={(event, resource, close) => {
+              const booking = bookings.find((b) => b.id === event.id);
+              return (
+                <div className="details">
+                  <div>
+                    <p className="details-title">{event.title}</p>
+                    {booking && (
+                      <p className="muted">
+                        {resource.name}, {formatOfficeDay(booking.startsAt)}, {formatOfficeTime(booking.startsAt)} to{" "}
+                        {formatOfficeTime(booking.endsAt)}
+                        <br />
+                        Booked by {booking.booker}
+                      </p>
+                    )}
+                  </div>
+                  {booking?.pending ? (
+                    <p className="muted">Saving…</p>
+                  ) : (
+                    <div className="details-actions">
+                      <button
+                        type="button"
+                        className="button small"
+                        onClick={() =>
+                          saveCalendar("booking.ics", eventsToICS(events.filter((e) => e.id === event.id), { resources }))
+                        }
+                      >
+                        Add to calendar
+                      </button>
+                      <button
+                        type="button"
+                        className="button small danger"
+                        onClick={() => {
+                          close();
+                          cancel(event.id);
+                        }}
+                      >
+                        Cancel booking
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            }}
+          />
+        </div>
+
+        <div className="board-foot">
+          <ul className="legend" aria-label="Key">
+            <li className="mine">Yours</li>
+            <li>Booked</li>
+            <li className="pending">Saving</li>
+          </ul>
+          {loading ? <span role="status">Loading…</span> : <span>Times are {OFFICE_TIME_ZONE} time.</span>}
+        </div>
       </div>
 
       <div className="toast-region" aria-live="polite">
@@ -246,82 +414,6 @@ export function Board({
         )}
       </div>
 
-      <div className="board-frame">
-        <ResourceScheduler
-          resources={resources}
-          events={events}
-          timeZone={OFFICE_TIME_ZONE}
-          initialDate={start}
-          initialView={ViewType.Day}
-          allowViewChange={false}
-          slotDuration={SLOT_MINUTES}
-          dayStartHour={OPEN_HOUR}
-          dayEndHour={CLOSE_HOUR}
-          resourceColumnWidth="180px"
-          timeColumnWidth="110px"
-          classNames={{ slot: "slot" }}
-          nowIndicator
-          businessHours={{ daysOfWeek: [0, 1, 2, 3, 4, 5, 6], startHour: OPEN_HOUR, endHour: CLOSE_HOUR }}
-          ariaLabel="Meeting room bookings"
-          labels={{ resources: "Rooms" }}
-          eventOverlap={rules.eventOverlap}
-          isValidDrop={isValidDrop}
-          onSlotSelect={(slot) => setDraft({ ...slot, roomName: roomName(slot.resourceId) })}
-          onEventDrop={(event, _fromRoom, toRoom, startsAt, endsAt) => reschedule(event.id, toRoom, startsAt, endsAt)}
-          onEventResize={(event, roomId, startsAt, endsAt) => reschedule(event.id, roomId, startsAt, endsAt)}
-          onRangeChange={onRangeChange}
-          // The scheduler's wrapper around this keeps the keyboard, focus ring, popover and resize handles.
-          // Times come from the booking: the event's dates are shifted into the scheduler's time zone.
-          renderTimeSlot={(event) => {
-            const booking = bookings.find((b) => b.id === event.id);
-            return (
-              <div
-                className="booking"
-                data-pending={booking?.pending || undefined}
-                style={{ "--booking": event.color } as CSSProperties}
-                title={event.title}
-              >
-                <span className="booking-title">{event.title}</span>
-                {booking && (
-                  <span className="booking-time">
-                    {formatOfficeTime(booking.startsAt)} – {formatOfficeTime(booking.endsAt)}
-                  </span>
-                )}
-              </div>
-            );
-          }}
-          renderEventPopover={(event, resource, close) => {
-            const booking = bookings.find((b) => b.id === event.id);
-            return (
-              <div className="details">
-                <p className="details-title">{event.title}</p>
-                {booking && (
-                  <p className="muted">
-                    {resource.name}, {formatOfficeTime(booking.startsAt)} to {formatOfficeTime(booking.endsAt)}
-                    <br />
-                    Booked by {booking.booker}
-                  </p>
-                )}
-                {booking?.pending ? (
-                  <p className="muted">Saving…</p>
-                ) : (
-                  <button
-                    type="button"
-                    className="button danger"
-                    onClick={() => {
-                      close();
-                      cancel(event.id);
-                    }}
-                  >
-                    Cancel booking
-                  </button>
-                )}
-              </div>
-            );
-          }}
-        />
-      </div>
-
       {draft && (
         <BookingDialog
           key={`${draft.resourceId}:${draft.start.getTime()}:${draft.errors ? "retry" : "new"}`}
@@ -330,6 +422,6 @@ export function Board({
           onCancel={() => setDraft(null)}
         />
       )}
-    </>
+    </main>
   );
 }
