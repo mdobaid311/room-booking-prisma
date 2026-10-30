@@ -12,16 +12,18 @@ production-ready starter built end to end on the Prisma platform:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png" />
-  <img src="docs/screenshot-light.png" alt="Six room plates saying which rooms are free right now, above a timeline of the day's bookings colored by floor" width="1440" />
+  <img src="docs/screenshot-light.png" alt="The booking board in its glass theme: a Find a time panel beside a day timeline of rooms grouped by floor, each with its status and a utilization bar, above cards for the stack it is built with" width="1440" />
 </picture>
 
 <!-- GIF placeholder: a 10-second clip of drag-to-book, a red footprint on a taken slot, and a second tab losing the race. -->
 
 ## What it does
 
-- A plate per room, like the sign by a meeting room door, says whether it is free right now and until when. **Book now** takes the current half hour.
-- Rooms are rows, half hours from 08:00 to 18:00 are columns, grouped by floor. Each floor has a color, on its plates and its bookings, and every room shows how much of its day is booked.
+- Rooms are rows, grouped by floor, and half hours from 08:00 to 18:00 are columns, in a day view or a week view. Each room says, like the sign by a meeting room door, whether it is free right now and until when (`Free until 6:00 PM`, `In use until 3:30 PM`), and a utilization bar shows how much of its day is booked.
+- **Find a time** sits beside the timeline: pick a length (30 minutes to 2 hours) and a group size, and it suggests the first free time of every room that fits. Picking one opens the booking form.
 - Drag across free time and your own booking form opens (`onSlotSelect`). Drag a booking to move it, drag its edge to resize it, click it to cancel it.
+- Export the bookings on screen, or a single booking, as a calendar file (`.ics`), or print the page.
+- A glass theme in light and dark: frosted layers over soft fields of color, built from the design tokens at the top of `src/app/globals.css`, with the scheduler's `--rs-*` variables mapped onto them. It follows the system setting, and the theme button switches it.
 - A taken slot, a time outside opening hours, or one that has already started turns red before you drop (`eventOverlap`, `isValidDrop`), so most mistakes never reach the server.
 - The server checks again inside a transaction, with the same rules, so two people booking the same slot at the same moment cannot both win. The loser's change rolls back on screen with a message that says what is in the way.
 - Times are shown and checked on the office's clock (`Europe/Berlin` by default), whatever zone the visitor or the server is in.
@@ -139,11 +141,17 @@ src/
     page.tsx                 server component: rooms and the day's bookings, seeds an empty database or day
     board.tsx                client component: <ResourceScheduler>, optimistic updates and rollback
     booking-dialog.tsx       the booking form opened by onSlotSelect
+    find-time.tsx            "Find a time": the first free slot of each room that fits
+    room-status.tsx          what each room's row says: free until, in use until
+    theme-toggle.tsx         the light and dark switch
+    about.tsx                the "Built with" cards
+    globals.css              the glass theme: design tokens, then components
     api/bookings/route.ts    GET (a date range) and POST
     api/bookings/[id]/route.ts  PATCH (move, resize) and DELETE
   lib/                       shared by browser and server
     office.ts                office time zone, opening hours, slot length
     rules.ts                 bookingRules(): the placement rules both sides run
+    free-slots.ts            the free-time search behind "Find a time"
     validation.ts            zod schemas for every request
     api-types.ts, api-client.ts  what crosses the network
   server/

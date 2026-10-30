@@ -26,7 +26,7 @@ folder. So the submission is a copy of this repo, not a link to it.
 | `.gitignore`, `.gitattributes` | | covers everything the official ones do | none |
 | README | "Run locally", "Deploy to Prisma Compute" | both, plus how it works, env vars, scripts, structure, tests, troubleshooting | small edits in the gallery copy (see below) |
 | `templates.json` `author` | no entry has one yet | | new field; shape to confirm with Prisma (draft below uses a string) |
-| Deploy Button limits | | 52 tracked files, screenshots ~100 KB each | within 100 files / 25 MB |
+| Deploy Button limits | | 52 tracked files, screenshots ~450 KB each | within 100 files / 25 MB |
 
 ### The workflow at this repo's root
 
